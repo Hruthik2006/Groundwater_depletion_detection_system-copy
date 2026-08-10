@@ -1,8 +1,15 @@
+import os
 import numpy as np
 import logging
 from typing import Dict, Any
 from .base_provider import BaseDataProvider
 from .synthetic_provider import SyntheticDataProvider
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +32,7 @@ class RealtimeEarthEngineDataProvider(BaseDataProvider):
         grid_shape: tuple = (16, 16),
         fallback_if_unauthenticated: bool = True,
     ):
-        self.ee_project_id = ee_project_id
+        self.ee_project_id = ee_project_id or os.getenv("GEE_PROJECT_ID")
         self.grid_shape = grid_shape
         self.fallback_if_unauthenticated = fallback_if_unauthenticated
         self.ee_initialized = False
@@ -34,12 +41,12 @@ class RealtimeEarthEngineDataProvider(BaseDataProvider):
         # Attempt GEE Initialization
         try:
             import ee
-            if ee_project_id:
-                ee.Initialize(project=ee_project_id)
+            if self.ee_project_id:
+                ee.Initialize(project=self.ee_project_id)
             else:
                 ee.Initialize()
             self.ee_initialized = True
-            logger.info("Google Earth Engine API successfully initialized.")
+            logger.info(f"Google Earth Engine API successfully initialized (Project: {self.ee_project_id or 'default'}).")
         except Exception as e:
             logger.warning(
                 f"Google Earth Engine API initialization skipped/failed ({e}). "

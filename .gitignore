@@ -36,6 +36,11 @@ htmlcov/
 *.pt
 models/checkpoints/
 
+# Environment & API Keys
+.env
+*.env
+!.env.example
+
 # IDE & OS
 .vscode/
 .idea/
