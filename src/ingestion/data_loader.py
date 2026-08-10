@@ -35,7 +35,13 @@ class GroundwaterDataLoader:
 
     def _init_provider(self):
         if self.data_mode == "realtime":
-            self.provider = RealtimeEarthEngineDataProvider(grid_shape=self.grid_shape)
+            self.provider = RealtimeEarthEngineDataProvider(
+                grid_shape=self.grid_shape,
+                mascon_grid_shape=self.mascon_grid_shape,
+                region_key=self.region_key,
+                bounds=self.bounds,
+                seed=self.seed,
+            )
         else:
             self.provider = SyntheticDataProvider(
                 grid_shape=self.grid_shape,

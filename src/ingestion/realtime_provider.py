@@ -30,13 +30,28 @@ class RealtimeEarthEngineDataProvider(BaseDataProvider):
         self,
         ee_project_id: str = None,
         grid_shape: tuple = (16, 16),
+        mascon_grid_shape: tuple = (2, 2),
+        region_key: str = "illinois",
+        bounds: list = None,
+        seed: int = 42,
         fallback_if_unauthenticated: bool = True,
     ):
         self.ee_project_id = ee_project_id or os.getenv("GEE_PROJECT_ID")
         self.grid_shape = grid_shape
+        self.mascon_grid_shape = mascon_grid_shape
+        self.region_key = region_key
+        self.bounds = bounds
+        self.seed = seed
         self.fallback_if_unauthenticated = fallback_if_unauthenticated
         self.ee_initialized = False
-        self._fallback_provider = SyntheticDataProvider(grid_shape=grid_shape)
+
+        self._fallback_provider = SyntheticDataProvider(
+            grid_shape=grid_shape,
+            mascon_grid_shape=mascon_grid_shape,
+            region_key=region_key,
+            bounds=bounds,
+            seed=seed,
+        )
 
         # Attempt GEE Initialization
         try:
@@ -52,6 +67,18 @@ class RealtimeEarthEngineDataProvider(BaseDataProvider):
                 f"Google Earth Engine API initialization skipped/failed ({e}). "
                 "Operating in Realtime Standby mode with synthetic fallback."
             )
+
+    def set_region(self, region_key: str = "illinois", bounds: list = None):
+        """Dynamically update geographic study region preset or custom bounds."""
+        self.region_key = region_key
+        self.bounds = bounds
+        self._fallback_provider = SyntheticDataProvider(
+            grid_shape=self.grid_shape,
+            mascon_grid_shape=self.mascon_grid_shape,
+            region_key=region_key,
+            bounds=bounds,
+            seed=self.seed,
+        )
 
     def get_grid_metadata(self) -> Dict[str, Any]:
         meta = self._fallback_provider.get_grid_metadata()
