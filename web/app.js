@@ -1346,23 +1346,31 @@ async function updateGEEStatusBadge() {
     const res = await fetch("/api/v1/status");
     const data = await res.json();
     const badge = document.getElementById("geeStatusBadge");
+    const textSpan = document.getElementById("geeStatusText");
     if (!badge) return;
 
+    let textVal = "";
     if (data.provider_metadata && data.provider_metadata.ee_initialized) {
-      badge.innerText = "GEE CONNECTED";
+      textVal = "GEE CONNECTED";
       badge.style.background = "rgba(16, 185, 129, 0.15)";
       badge.style.color = "#10B981";
       badge.style.borderColor = "rgba(16, 185, 129, 0.3)";
     } else if (data.data_mode === "realtime") {
-      badge.innerText = "GEE STANDBY";
+      textVal = "GEE STANDBY";
       badge.style.background = "rgba(245, 158, 11, 0.15)";
       badge.style.color = "#F59E0B";
       badge.style.borderColor = "rgba(245, 158, 11, 0.3)";
     } else {
-      badge.innerText = "SYNTHETIC ENGINE";
+      textVal = "SYNTHETIC ENGINE";
       badge.style.background = "rgba(59, 130, 246, 0.15)";
       badge.style.color = "#60A5FA";
       badge.style.borderColor = "rgba(59, 130, 246, 0.3)";
+    }
+
+    if (textSpan) {
+      textSpan.innerText = textVal;
+    } else {
+      badge.innerText = textVal;
     }
   } catch (e) {
     console.warn("GEE Status check error:", e);

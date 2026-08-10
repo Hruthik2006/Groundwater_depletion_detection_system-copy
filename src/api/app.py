@@ -956,7 +956,26 @@ if os.path.exists(web_dir):
       <span style="font-size: 0.78rem; opacity: 0.7; font-weight: 400; margin-left: 10px;">&bull; Technical Implementation Guide</span>
     </div>
     <div class="header-nav-right" style="margin-right: 40px; display: flex; align-items: center; gap: 1rem;">
-      <span id="geeStatusBadge" class="gee-status-badge" style="padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; background: rgba(16, 185, 129, 0.15); color: #10B981; border: 1px solid rgba(16, 185, 129, 0.3);" title="Google Earth Engine Connection Status">GEE READY</span>
+      <!-- Interactive Data Source Switcher in Top Header Bar -->
+      <div class="choice-picker-container" style="position: relative;">
+        <button id="geeStatusBadge" class="gee-status-badge choice-picker-trigger" style="padding: 4px 12px; border-radius: 14px; font-size: 0.75rem; font-weight: 600; background: rgba(16, 185, 129, 0.15); color: #10B981; border: 1px solid rgba(16, 185, 129, 0.3); cursor: pointer; display: flex; align-items: center; gap: 5px;" onclick="toggleChoicePicker('headerSourceMenu', 'geeStatusBadge')" title="Click to switch Data Source Mode (Synthetic / Realtime GEE)">
+          <span id="geeStatusText">GEE READY</span>
+          <span class="choice-picker-arrow">↘</span>
+        </button>
+        <div id="headerSourceMenu" class="choice-picker-menu" style="right: 0; left: auto; min-width: 240px; margin-top: 6px;">
+          <div class="choice-picker-group">
+            <div class="choice-picker-group-title">Data Source Channel</div>
+            <div class="choice-picker-items">
+              <div class="choice-picker-item" onclick="selectChoiceSource('synthetic', 'Synthetic Benchmark Engine')">
+                <span class="choice-picker-label">⚡ Synthetic Benchmark Engine</span>
+              </div>
+              <div class="choice-picker-item" onclick="selectChoiceSource('realtime', 'NASA EarthData &amp; GEE API')">
+                <span class="choice-picker-label">🛰️ Realtime NASA EarthData &amp; GEE</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
       <a href="/" class="header-nav-link">Dashboard</a>
       <a href="/admin" target="_blank" class="header-nav-link">Admin</a>
       <a href="/help" class="header-nav-link" style="color: var(--cyan); font-weight: 700;">Help</a>

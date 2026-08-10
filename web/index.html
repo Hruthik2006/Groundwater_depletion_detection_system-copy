@@ -144,7 +144,26 @@
         <div class="header-brand" onclick="openLandingScreen()" style="cursor: pointer; margin-left: 150px;"
           title="Click to view Landing Cover Screen">Satellite Enhanced Groundwater Prediction system</div>
         <div class="header-nav-right" style="margin-right: 150px; display: flex; align-items: center; gap: 1rem;">
-          <span id="geeStatusBadge" class="gee-status-badge" style="padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; background: rgba(16, 185, 129, 0.15); color: #10B981; border: 1px solid rgba(16, 185, 129, 0.3);" title="Google Earth Engine Connection Status">GEE READY</span>
+          <!-- Interactive Data Source Switcher in Top Header Bar -->
+          <div class="choice-picker-container" style="position: relative;">
+            <button id="geeStatusBadge" class="gee-status-badge choice-picker-trigger" style="padding: 4px 12px; border-radius: 14px; font-size: 0.75rem; font-weight: 600; background: rgba(16, 185, 129, 0.15); color: #10B981; border: 1px solid rgba(16, 185, 129, 0.3); cursor: pointer; display: flex; align-items: center; gap: 5px;" onclick="toggleChoicePicker('headerSourceMenu', 'geeStatusBadge')" title="Click to switch Data Source Mode (Synthetic / Realtime GEE)">
+              <span id="geeStatusText">GEE READY</span>
+              <span class="choice-picker-arrow">↘</span>
+            </button>
+            <div id="headerSourceMenu" class="choice-picker-menu" style="right: 0; left: auto; min-width: 240px; margin-top: 6px;">
+              <div class="choice-picker-group">
+                <div class="choice-picker-group-title">Data Source Channel</div>
+                <div class="choice-picker-items">
+                  <div class="choice-picker-item" onclick="selectChoiceSource('synthetic', 'Synthetic Benchmark Engine')">
+                    <span class="choice-picker-label">⚡ Synthetic Benchmark Engine</span>
+                  </div>
+                  <div class="choice-picker-item" onclick="selectChoiceSource('realtime', 'NASA EarthData &amp; GEE API')">
+                    <span class="choice-picker-label">🛰️ Realtime NASA EarthData &amp; GEE</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
           
           <!--
           <div class="status-indicator-pill" style="display: flex; align-items: center; gap: 4px; padding: 3px 8px; background: rgba(255,255,255,0.05); border-radius: 10px;">
