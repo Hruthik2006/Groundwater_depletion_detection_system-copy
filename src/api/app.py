@@ -887,6 +887,7 @@ if os.path.exists(web_dir):
   <link rel="alternate icon" type="image/png" href="/static/favicon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles.css" />
   <script>
     window.MathJax = {
       tex: {
@@ -908,9 +909,9 @@ if os.path.exists(web_dir):
     }
     *{box-sizing:border-box;margin:0;padding:0;}
     body{background:var(--bg);color:var(--text);font-family:'Instrument Sans',sans-serif;line-height:1.75;font-size:15px;}
-    .wrap{max-width:1080px;margin:0 auto;padding:36px 24px 90px;}
+    .wrap{max-width:1200px;margin:0 auto;padding:20px 24px 90px;}
     .layout{display:flex;gap:28px;align-items:flex-start;}
-    .toc{position:sticky;top:20px;width:220px;min-width:220px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px 14px;font-size:0.78rem;}
+    .toc{position:sticky;top:20px;width:220px;min-width:220px;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px 14px;font-size:0.78rem;}
     .toc h4{color:var(--cyan);font-family:'Outfit',sans-serif;margin-bottom:10px;font-size:0.85rem;}
     .toc a{display:block;color:var(--sub);text-decoration:none;padding:4px 0 4px 8px;border-left:2px solid transparent;transition:all 0.2s;}
     .toc a:hover{color:var(--cyan);border-color:var(--cyan);}
@@ -947,6 +948,21 @@ if os.path.exists(web_dir):
 </head>
 <body>
 <div class="wrap">
+  <!-- Top Header Bar (Matching Home & Admin Pages) -->
+  <header class="top-header" style="border-radius: 20px; margin-bottom: 24px;">
+    <div class="header-brand" onclick="window.location.href='/'" style="cursor: pointer; margin-left: 40px;"
+      title="Click to return to User Dashboard">
+      Satellite Enhanced Groundwater Prediction system
+      <span style="font-size: 0.78rem; opacity: 0.7; font-weight: 400; margin-left: 10px;">&bull; Technical Implementation Guide</span>
+    </div>
+    <div class="header-nav-right" style="margin-right: 40px; display: flex; align-items: center; gap: 1rem;">
+      <span id="geeStatusBadge" class="gee-status-badge" style="padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; background: rgba(16, 185, 129, 0.15); color: #10B981; border: 1px solid rgba(16, 185, 129, 0.3);" title="Google Earth Engine Connection Status">GEE READY</span>
+      <a href="/" class="header-nav-link">Dashboard</a>
+      <a href="/admin" target="_blank" class="header-nav-link">Admin</a>
+      <a href="/help" class="header-nav-link" style="color: var(--cyan); font-weight: 700;">Help</a>
+    </div>
+  </header>
+
   <div class="hdr">
     <h1>Implementation Guide: Satellite-Enhanced Groundwater Forecasting &amp; SCP-CCMPC Framework</h1>
     <p>Operational pipeline architecture for satellite gravimetry downscaling, scientific machine learning surrogates, split conformal uncertainty quantification, and chance-constrained sequential convex programming extraction management.</p>

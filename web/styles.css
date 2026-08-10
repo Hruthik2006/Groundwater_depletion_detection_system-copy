@@ -747,9 +747,10 @@ input::placeholder {
 
 .legend-bar {
   flex: 1;
-  height: 6px;
+  height: 8px;
   border-radius: 4px;
-  background: linear-gradient(90deg, #121212 0%, #444444 50%, #E0E0E0 100%);
+  background: linear-gradient(90deg, hsl(0, 85%, 45%), hsl(35, 85%, 45%), hsl(60, 85%, 45%), hsl(120, 85%, 45%), hsl(160, 85%, 45%), hsl(200, 85%, 45%));
+  box-shadow: 0 0 8px rgba(0, 242, 254, 0.2);
 }
 
 /* GIS Map & 3D WebGL Canvas Containers */
