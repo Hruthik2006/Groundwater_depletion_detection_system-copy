@@ -109,6 +109,28 @@ input::-webkit-inner-spin-button {
   text-decoration: underline;
 }
 
+.header-nav-report-btn {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  color: #ffffff;
+  border: none;
+  padding: 5px 14px;
+  border-radius: 14px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.4);
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.header-nav-report-btn:hover {
+  background: linear-gradient(135deg, #1d4ed8, #1e40af);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.6);
+}
+
 /* 2. Top Unified Formula Control Bar */
 .top-formula-bar {
   background: var(--bg-card);
