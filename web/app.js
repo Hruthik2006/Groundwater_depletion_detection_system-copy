@@ -820,6 +820,20 @@ function selectInputPageRegion(key, labelText) {
   selectedInputPageRegion = key;
   const labelEl = document.getElementById("inputPageRegionLabel");
   if (labelEl) labelEl.innerText = labelText;
+
+  // Auto-fill latitude/longitude if empty or default
+  const regionDefaults = {
+    high_plains: { lat: 37.50, lon: -100.00 },
+    ganges: { lat: 26.50, lon: 79.50 },
+    north_german: { lat: 53.00, lon: 11.00 },
+    illinois: { lat: 40.15, lon: -88.25 },
+  };
+  if (regionDefaults[key]) {
+    const latInput = document.getElementById("inputScreenLat");
+    const lonInput = document.getElementById("inputScreenLon");
+    if (latInput && !latInput.value) latInput.value = regionDefaults[key].lat.toFixed(2);
+    if (lonInput && !lonInput.value) lonInput.value = regionDefaults[key].lon.toFixed(2);
+  }
   closeAllChoicePickers();
 }
 
@@ -830,15 +844,34 @@ function selectInputPageSource(key, labelText) {
   closeAllChoicePickers();
 }
 
-function validateAndSubmitDetails(e) {
+async function validateAndSubmitDetails(e) {
   if (e) e.preventDefault();
 
   const latInput = document.getElementById("inputScreenLat");
   const lonInput = document.getElementById("inputScreenLon");
   const errEl = document.getElementById("inputScreenError");
 
-  const latVal = latInput ? latInput.value.trim() : "";
-  const lonVal = lonInput ? lonInput.value.trim() : "";
+  let latVal = latInput ? latInput.value.trim() : "";
+  let lonVal = lonInput ? lonInput.value.trim() : "";
+
+  const regionDefaults = {
+    high_plains: { lat: 37.50, lon: -100.00 },
+    ganges: { lat: 26.50, lon: 79.50 },
+    north_german: { lat: 53.00, lon: 11.00 },
+    illinois: { lat: 40.15, lon: -88.25 },
+  };
+
+  // If region chosen but lat/lon empty, use region defaults
+  if ((!latVal || !lonVal) && selectedInputPageRegion && regionDefaults[selectedInputPageRegion]) {
+    if (!latVal) {
+      latVal = regionDefaults[selectedInputPageRegion].lat.toFixed(2);
+      if (latInput) latInput.value = latVal;
+    }
+    if (!lonVal) {
+      lonVal = regionDefaults[selectedInputPageRegion].lon.toFixed(2);
+      if (lonInput) lonInput.value = lonVal;
+    }
+  }
 
   if (errEl) {
     errEl.style.display = "none";
@@ -847,7 +880,7 @@ function validateAndSubmitDetails(e) {
 
   // 1. Validate numeric Latitude & Longitude
   if (!latVal || isNaN(parseFloat(latVal))) {
-    showInputScreenError("Please enter a valid numeric Latitude (e.g. 40.15).");
+    showInputScreenError("Please select a region or enter a valid numeric Latitude (e.g. 40.15).");
     if (latInput) latInput.focus();
     return;
   }
@@ -860,7 +893,7 @@ function validateAndSubmitDetails(e) {
   }
 
   if (!lonVal || isNaN(parseFloat(lonVal))) {
-    showInputScreenError("Please enter a valid numeric Longitude (e.g. -88.25).");
+    showInputScreenError("Please select a region or enter a valid numeric Longitude (e.g. -88.25).");
     if (lonInput) lonInput.focus();
     return;
   }
@@ -887,8 +920,19 @@ function validateAndSubmitDetails(e) {
         high_plains: "High Plains / Ogallala (USA)",
         north_german: "North German Basin (Europe)",
         ganges: "Indo-Gangetic Basin (India)",
+        illinois: "Illinois Glacial Aquifer System (USA)",
       };
       regionLabelSpan.innerText = regionNames[selectedInputPageRegion] || "Hydrogeological region";
+    }
+
+    try {
+      await fetch("/api/v1/config/location", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ region_key: selectedInputPageRegion }),
+      });
+    } catch (err) {
+      console.warn("Region config error:", err);
     }
   }
 
@@ -899,7 +943,14 @@ function validateAndSubmitDetails(e) {
     if (sourceLabelSpan) {
       sourceLabelSpan.innerText = selectedInputPageSource === "realtime" ? "NASA EarthData & GEE API" : "Synthetic Benchmark Engine";
     }
-    setDataSourceMode(selectedInputPageSource);
+    await setDataSourceMode(selectedInputPageSource);
+  }
+
+  // Position GIS Map and Marker to user's specified lat/lon
+  updateMapMarker(latNum, lonNum, `<b>📍 Pinned Query Location</b><br>Lat: ${latNum.toFixed(4)}°, Lon: ${lonNum.toFixed(4)}°`);
+  if (gisMap) {
+    gisMap.invalidateSize();
+    gisMap.setView([latNum, lonNum], 8);
   }
 
   // 3. Save session state & transition to Dashboard
@@ -913,7 +964,7 @@ function validateAndSubmitDetails(e) {
   }
 
   // Execute predictions and MPC optimization on dashboard
-  fetchUnifiedControl();
+  await fetchUnifiedControl();
 }
 
 let errorTimeoutId = null;
