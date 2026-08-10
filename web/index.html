@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Satellite Enhanced Groundwater Prediction System</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Outfit:wght@300;400;500;600;700&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="/static/styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+
+<body>
+  <!-- LANDING PAGE OVERLAY (Matching Attached Image) -->
+  <div id="landingScreen" class="landing-page-overlay">
+    <div class="landing-content-top">
+      <div class="footer-hero-block">
+        <h1 class="fullscreen-footer-title">Satellite Enhanced Groundwater Prediction system</h1>
+        <div class="fullscreen-footer-year">2026</div>
+      </div>
+      <div class="fullscreen-footer-subtitle">
+        For Capstone Project, AIML Department, DSATM, 2026
+      </div>
+    </div>
+    <div class="landing-content-bottom">
+      <a href="#" class="landing-proceed-btn" onclick="openInputScreen(event)">Proceed &gt;</a>
+    </div>
+  </div>
+
+  <!-- INPUT DETAILS PAGE OVERLAY -->
+  <div id="inputScreen" class="landing-page-overlay hidden">
+    <div class="landing-content-top" style="gap: 2.2rem;">
+      <h2 class="fullscreen-footer-subtitle" style="margin-left: 7px; margin-bottom: 50px;">Enter the details</h2>
+
+      <div class="input-screen-form" style="display: flex; flex-direction: column; gap: 1.4rem; max-width: 420px;">
+        <!-- Hydrogeological region choice picker -->
+        <div class="choice-picker-container" id="inputPageRegionPickerContainer">
+          <button class="choice-picker-trigger" id="inputPageRegionBtn" style="font-size: 1.05rem;"
+            onclick="toggleChoicePicker('inputPageRegionMenu', 'inputPageRegionBtn')">
+            <span id="inputPageRegionLabel" style="font-size: 1.45rem;">Hydrogeological region</span>
+            <span class="choice-picker-arrow" style="font-size: 1.45rem;">↘</span>
+          </button>
+          <div id="inputPageRegionMenu" class="choice-picker-menu">
+            <div class="choice-picker-group">
+              <div class="choice-picker-group-title">North America</div>
+              <div class="choice-picker-items">
+                <div class="choice-picker-item"
+                  onclick="selectInputPageRegion('high_plains', 'High Plains / Ogallala (USA)')">
+                  <span class="choice-picker-label">High Plains / Ogallala (USA)</span>
+                </div>
+              </div>
+            </div>
+            <div class="choice-picker-group">
+              <div class="choice-picker-group-title">Europe</div>
+              <div class="choice-picker-items">
+                <div class="choice-picker-item"
+                  onclick="selectInputPageRegion('north_german', 'North German Basin (Europe)')">
+                  <span class="choice-picker-label">North German Basin (Europe)</span>
+                </div>
+              </div>
+            </div>
+            <div class="choice-picker-group">
+              <div class="choice-picker-group-title">Asia</div>
+              <div class="choice-picker-items">
+                <div class="choice-picker-item"
+                  onclick="selectInputPageRegion('ganges', 'Indo-Gangetic Basin (India)')">
+                  <span class="choice-picker-label">Indo-Gangetic Basin (India)</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Latitude input with ^ indicator -->
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <input type="number" id="inputScreenLat" step="0.01" placeholder="Latitude ^"
+            style="font-size: 1.45rem; width: 220px; color: #E0E0E0; background: transparent; border: none; border-bottom: 1.5px solid transparent; padding: 0.2rem 0.4rem; outline: none; transition: border-color 0.2s;"
+            onfocus="this.style.borderColor='#E0E0E0'" onblur="if(!this.value) this.style.borderColor='transparent'">
+        </div>
+
+        <!-- Longitude input with ^ indicator -->
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <input type="number" id="inputScreenLon" step="0.01" placeholder="Longitude ^"
+            style="font-size: 1.45rem; width: 220px; color: #E0E0E0; background: transparent; border: none; border-bottom: 1.5px solid transparent; padding: 0.2rem 0.4rem; outline: none; transition: border-color 0.2s;"
+            onfocus="this.style.borderColor='#E0E0E0'" onblur="if(!this.value) this.style.borderColor='transparent'">
+        </div>
+
+        <!-- Data Source choice picker -->
+        <div class="choice-picker-container" id="inputPageSourcePickerContainer">
+          <button class="choice-picker-trigger" id="inputPageSourceBtn" style="font-size: 1.05rem;"
+            onclick="toggleChoicePicker('inputPageSourceMenu', 'inputPageSourceBtn')">
+            <span id="inputPageSourceLabel" style="font-size: 1.45rem;">Data Source</span>
+            <span class="choice-picker-arrow" style="font-size: 1.45rem;">↘</span>
+          </button>
+          <div id="inputPageSourceMenu" class="choice-picker-menu">
+            <div class="choice-picker-group">
+              <div class="choice-picker-group-title">Observational Satellite Feeds</div>
+              <div class="choice-picker-items">
+                <div class="choice-picker-item" onclick="selectInputPageSource('realtime', 'NASA EarthData & GEE API')">
+                  <span class="choice-picker-label">NASA EarthData & GEE API</span>
+                </div>
+              </div>
+            </div>
+            <div class="choice-picker-group">
+              <div class="choice-picker-group-title">Benchmark Engines</div>
+              <div class="choice-picker-items">
+                <div class="choice-picker-item"
+                  onclick="selectInputPageSource('synthetic', 'Synthetic Benchmark Engine')">
+                  <span class="choice-picker-label">Synthetic Benchmark Engine</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Inline Validation Error Display -->
+        <div id="inputScreenError"
+          style="color: #c44747; font-size: 1.05rem; font-weight: 100; display: none; margin-top: 1rem;">
+        </div>
+      </div>
+    </div>
+
+    <div class="landing-content-bottom">
+      <a href="#" class="landing-proceed-btn" onclick="validateAndSubmitDetails(event)">Continue &gt;</a>
+    </div>
+  </div>
+
+  <div class="app-container">
+
+    <!-- SCREEN 1: Main Project Dashboard (100vh) -->
+    <section class="screen-section screen-project">
+      <!-- Top Header Bar (Matching Tagged Image) -->
+      <header class="top-header" style="border-radius: 20px;">
+        <div class="header-brand" onclick="openLandingScreen()" style="cursor: pointer; margin-left: 150px;"
+          title="Click to view Landing Cover Screen">Satellite Enhanced Groundwater Prediction system</div>
+        <div class="header-nav-right" style="margin-right: 150px;">
+          <a href="#" onclick="openInputScreen(event)" class="header-nav-link">New</a>
+          <a href="/admin" target="_blank" class="header-nav-link">Admin</a>
+          <a href="/help" target="_blank" class="header-nav-link">Help</a>
+        </div>
+      </header>
+
+      <!-- Top Unified Formula Control Bar -->
+      <div class="top-formula-bar">
+        <!-- Hydrogeological Region Choice Picker -->
+        <div class="choice-picker-container" id="regionPickerContainer">
+          <button class="choice-picker-trigger" id="regionPickerTriggerBtn"
+            onclick="toggleChoicePicker('regionPickerMenu', 'regionPickerTriggerBtn')">
+            <span id="regionPickerSelectedLabel" style="font-weight: 200;">Hydrogeological region</span>
+            <span class="choice-picker-arrow">↘</span>
+          </button>
+          <div id="regionPickerMenu" class="choice-picker-menu">
+            <div class="choice-picker-group">
+              <div class="choice-picker-group-title">North America</div>
+              <div class="choice-picker-items">
+                <div class="choice-picker-item"
+                  onclick="selectChoiceRegion('high_plains', 'High Plains / Ogallala (USA)')">
+                  <span class="choice-picker-label">High Plains / Ogallala (USA)</span>
+                </div>
+              </div>
+            </div>
+            <div class="choice-picker-group">
+              <div class="choice-picker-group-title">Europe</div>
+              <div class="choice-picker-items">
+                <div class="choice-picker-item"
+                  onclick="selectChoiceRegion('north_german', 'North German Basin (Europe)')">
+                  <span class="choice-picker-label">North German Basin (Europe)</span>
+                </div>
+              </div>
+            </div>
+            <div class="choice-picker-group">
+              <div class="choice-picker-group-title">Asia</div>
+              <div class="choice-picker-items">
+                <div class="choice-picker-item" onclick="selectChoiceRegion('ganges', 'Indo-Gangetic Basin (India)')">
+                  <span class="choice-picker-label">Indo-Gangetic Basin (India)</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- Hidden Native Select for App Compatibility -->
+          <select id="regionPresetSelect" style="display: none;" onchange="changeRegionPreset()">
+            <option value="illinois">Hydrogeological region ↘</option>
+            <option value="north_german">North German Basin (Europe)</option>
+            <option value="high_plains">High Plains / Ogallala Aquifer (USA)</option>
+            <option value="ganges">Indo-Gangetic Aquifer Basin (India)</option>
+          </select>
+        </div>
+
+        <span class="formula-op">+</span>
+
+        <div class="formula-group formula-inputs-row">
+          <input type="number" id="inputLat" step="0.01" placeholder="Latitude">
+          <span class="formula-op">+&nbsp;</span>
+          <input type="number" id="inputLon" step="0.01" placeholder="Longitude">
+          <input type="hidden" id="inputH" value="12">
+        </div>
+
+        <span class="formula-op">+</span>
+
+        <!-- Data Source Choice Picker -->
+        <div class="choice-picker-container" id="sourcePickerContainer">
+          <button class="choice-picker-trigger" id="sourcePickerTriggerBtn"
+            onclick="toggleChoicePicker('sourcePickerMenu', 'sourcePickerTriggerBtn')">
+            <span id="sourcePickerSelectedLabel" style="font-weight: 200;">Data source</span>
+            <span class="choice-picker-arrow">↘</span>
+          </button>
+          <div id="sourcePickerMenu" class="choice-picker-menu">
+            <div class="choice-picker-group">
+              <div class="choice-picker-group-title">Observational Satellite Feeds</div>
+              <div class="choice-picker-items">
+                <div class="choice-picker-item" onclick="selectChoiceSource('realtime', 'NASA EarthData & GEE API')">
+                  <span class="choice-picker-label">NASA EarthData & GEE API</span>
+                </div>
+              </div>
+            </div>
+            <div class="choice-picker-group">
+              <div class="choice-picker-group-title">Benchmark Engines</div>
+              <div class="choice-picker-items">
+                <div class="choice-picker-item" onclick="selectChoiceSource('synthetic', 'Synthetic Benchmark Engine')">
+                  <span class="choice-picker-label">Synthetic Benchmark Engine</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- Hidden Native Select for App Compatibility -->
+          <select id="dataSourceSelect" style="display: none;" onchange="toggleDataSourceChannel()">
+            <option value="synthetic">Data source</option>
+            <option value="synthetic">Synthetic Benchmark Data Engine</option>
+            <option value="realtime">Realtime NASA EarthData & GEE API</option>
+          </select>
+        </div>
+
+        <span class="formula-op">=</span>
+
+        <button class="btn-formula-fetch" onclick="fetchUnifiedControl()">FETCH</button>
+        <button id="btnGenerateReport" class="btn-formula-report" style="display: none;"
+          onclick="openLocationReport()">Generate Report</button>
+
+        <div class="status-indicator-pill">
+          <span id="dotRed" class="status-dot dot-red"></span>
+          <span id="dotGreen" class="status-dot dot-green dot-active"></span>
+        </div>
+        <button class="param-info-icon" onclick="openWebpageGuideModal()" title="How to Use Webpage Guide">ℹ</button>
+      </div>
+
+      <!-- Zero-Scroll Main Workspace with 3 Vertical Accordion Panels -->
+      <main class="vertical-accordion-container">
+        <!-- Panel 1: Parameters and Layer Framework status -->
+        <section id="panelFramework" class="accordion-panel panel-collapsed">
+          <div class="vertical-tab-strip" onclick="switchMainPanel('panelFramework')">
+            <span class="tab-label">Parameters and Layer Framework status&nbsp;&nbsp;&nbsp;&nbsp;V</span>
+          </div>
+          <div class="panel-content-wrapper">
+            <div class="panel-grid-framework">
+              <!-- Card 1: Framework Layer Status -->
+              <div class="card glass-card card-scrollable">
+                <div class="card-header">
+                  <h3>Framework Layer Status</h3>
+                </div>
+                <div class="layer-list-detailed">
+                  <div class="layer-card-item">
+                    <div class="layer-card-header">
+                      <strong>Layer 1: Geospatial Ingestion Engine</strong>
+                    </div>
+                    <div class="layer-card-meaning"><em>What it means:</em> <strong>Combines Satellite & Ground
+                        Data</strong>. Merges satellite gravity (GRACE), rainfall, soil moisture, and ground wells into
+                      a 4km x 4km grid.</div>
+                    <div class="layer-card-tech">Tech: GRACE TWSA • GLDAS Fluxes • Cubic Spline Interpolation • Z-Score
+                      Norm</div>
+                  </div>
+                  <div class="layer-card-item mt-2">
+                    <div class="layer-card-header">
+                      <strong>Layer 2: Multi-Scale Downscaling Engine</strong>
+                    </div>
+                    <div class="layer-card-meaning"><em>What it means:</em> <strong>Zooms In on Satellite
+                        Images</strong>. Converts coarse 1° (~110km) satellite data down to sharp 4km resolution without
+                      losing accuracy.</div>
+                    <div class="layer-card-tech">Tech: Random Forest & XGBoost Ensemble • Scale Preservation R_scale •
+                      GWLA Converter</div>
+                  </div>
+                  <div class="layer-card-item mt-2">
+                    <div class="layer-card-header">
+                      <strong>Layer 3: Unsaturated Vadose Zone Delay Model</strong>
+                    </div>
+                    <div class="layer-card-meaning"><em>What it means:</em> <strong>Models Rain Infiltration
+                        Lag</strong>. Simulates rain soaking through soil layer before reaching groundwater aquifer
+                      table.</div>
+                    <div class="layer-card-tech">Tech: Gamma Delay Kernel Convolution • Effective Recharge R_eff</div>
+                  </div>
+                  <div class="layer-card-item mt-2">
+                    <div class="layer-card-header">
+                      <strong>Layer 4: Scientific ML Dynamic Surrogates</strong>
+                    </div>
+                    <div class="layer-card-meaning"><em>What it means:</em> <strong>Fast Physics AI Simulator</strong>.
+                      AI models (GNN-LSTM, PINN, FNO) predict water table changes 100x faster than physics equations.
+                    </div>
+                    <div class="layer-card-tech">Tech: Spatio-Temporal GNN-LSTM • 2D Dupuit-Boussinesq PINN • 2D Fourier
+                      Neural Operator</div>
+                  </div>
+                  <div class="layer-card-item mt-2">
+                    <div class="layer-card-header">
+                      <strong>Layer 5: Finite-Sample Conformal Predictor</strong>
+                    </div>
+                    <div class="layer-card-meaning"><em>What it means:</em> <strong>Guaranteed Safety Margin</strong>.
+                      Calculates 95% confidence bounds (q̂ = 0.496m) to prevent dry wells during droughts.</div>
+                    <div class="layer-card-tech">Tech: Split Conformal UQ • Non-Conformity Scores • Empirical Quantile
+                      q_hat</div>
+                  </div>
+                  <div class="layer-card-item mt-2">
+                    <div class="layer-card-header">
+                      <strong>Layer 6: SCP Chance-Constrained MPC Optimizer</strong>
+                    </div>
+                    <div class="layer-card-meaning"><em>What it means:</em> <strong>Smart Pumping Quota
+                        Optimizer</strong>. Recommends safe monthly pumping limits for agricultural & municipal wells.
+                    </div>
+                    <div class="layer-card-tech">Tech: Two-Loop SCP Solver • ECOS Optimizer • Chance-Constrained MPC
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Card 2: SCP CCMPC Optimizer Parameters -->
+              <div class="card glass-card card-scrollable">
+                <div class="card-header">
+                  <h3>SCP CCMPC Optimizer Parameters</h3>
+                  <span class="info-btn-badge"
+                    onclick="alert('Two-Loop Sequential Convex Programming (SCP) Model Predictive Control (MPC) solves optimal pumping vectors E* subject to split conformal safety bounds.')"
+                    title="Click for Optimizer Overview">ℹ &nbsp;Overview</span>
+                </div>
+                <div class="control-form-compact">
+                  <div class="form-row-sm">
+                    <label>
+                      Planning Horizon (N Months):
+                      <button class="param-info-icon"
+                        title="Number of future monthly time steps optimized in rolling horizon MPC (6 to 36 months).">ℹ</button>
+                    </label>
+                    <input type="number" id="inputHVal" value="12" min="6" max="36">
+                  </div>
+
+                  <div class="form-row-sm">
+                    <label>
+                      Min Water Table Limit (h_min):
+                      <button class="param-info-icon"
+                        title="Minimum allowable hydraulic head (meters MSL) before severe well depletion risk occurs. Default: 35.0m.">ℹ</button>
+                    </label>
+                    <input type="number" id="hMinInput" value="35.0" step="0.5">
+                  </div>
+
+                  <div class="form-row-sm">
+                    <label>
+                      Target Head Recovery (h_target):
+                      <button class="param-info-icon"
+                        title="Target steady-state water table recovery level (meters MSL) optimized by SCP. Default: 45.0m.">ℹ</button>
+                    </label>
+                    <input type="number" id="hTargetInput" value="45.0" step="0.5">
+                  </div>
+
+                  <div class="form-row-sm">
+                    <label>
+                      Depletion Risk Tolerance (α):
+                      <button class="param-info-icon"
+                        title="Probability of violating safety threshold. 1 - α gives 95% conformal confidence coverage. Default: 0.05.">ℹ</button>
+                    </label>
+                    <input type="number" id="inputAlpha" value="0.05" step="0.01" min="0.01" max="0.2">
+                  </div>
+
+                  <div class="form-row-sm">
+                    <label>
+                      Conformal Error Margin (q̂):
+                      <button class="param-info-icon"
+                        title="Empirical error quantile computed by Split Conformal Prediction for finite-sample safety margins.">ℹ</button>
+                    </label>
+                    <div class="input-badge-wrapper">
+                      <span id="qHatBadge" class="badge-blue">q̂ = 0.496m</span>
+                    </div>
+                  </div>
+
+                  <div class="form-row-sm">
+                    <label>
+                      Max Pumping Capacity (E_max):
+                      <button class="param-info-icon"
+                        title="Maximum allowable monthly extraction rate per well (m³/month). Default: 100.0 m³/mo.">ℹ</button>
+                    </label>
+                    <input type="number" id="eMaxInput" value="100.0" step="5.0">
+                  </div>
+
+                  <div class="form-row-sm">
+                    <label>
+                      Pumping Cost Weight (γ_pump):
+                      <button class="param-info-icon"
+                        title="Objective cost penalty multiplier for groundwater pumping energy consumption. Default: 1.0.">ℹ</button>
+                    </label>
+                    <input type="number" id="gammaPumpInput" value="1.0" step="0.1">
+                  </div>
+
+                  <div class="form-row-sm">
+                    <label>
+                      Violation Slack Penalty (σ_slack):
+                      <button class="param-info-icon"
+                        title="Penalty weight for soft slack variable incursions under extreme drought scenarios. Default: 100.0.">ℹ</button>
+                    </label>
+                    <input type="number" id="sigmaSlackInput" value="100.0" step="10.0">
+                  </div>
+
+                  <div class="form-row-sm">
+                    <label>
+                      Trust Region Radius (Δ_trust):
+                      <button class="param-info-icon"
+                        title="Sequential Convex Programming (SCP) linearization trust region radius. Default: 5.0m.">ℹ</button>
+                    </label>
+                    <input type="number" id="deltaTrustInput" value="5.0" step="0.5">
+                  </div>
+
+                  <div class="form-row-sm">
+                    <label>
+                      Max SCP Outer Iterations:
+                      <button class="param-info-icon"
+                        title="Maximum outer loop SCP convex solver iterations before convergence check. Default: 20.">ℹ</button>
+                    </label>
+                    <input type="number" id="maxIterInput" value="20" min="5" max="50">
+                  </div>
+
+                  <button class="btn btn-primary btn-block mt-2" onclick="runOptimization()">Optimize Pumping
+                    Quotas</button>
+                  <div id="controlResultBox" class="result-box mt-2">
+                    <small>Optimal Quotas Solved. Conformal Bound Active.</small>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Card 3: Depletion Warning System -->
+              <div class="card glass-card">
+                <div class="card-header flex-between">
+                  <div>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                      <h3>Depletion Warning System</h3>
+                      <button class="param-info-icon" onclick="openDepletionInfoModal()"
+                        title="Click for Depletion Warning System Technical Overview">ℹ</button>
+                    </div>
+                    <p class="card-sub" style="margin: 2px 0 0 0; font-size: 0.75rem; color: #94a3b8;">Conformal safety
+                      bound checks, drawdown velocity &amp; time-to-depletion</p>
+                  </div>
+                  <div class="flex-align-center gap-2">
+                    <span id="alertCountBadge" class="badge-alert"
+                      style="background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239,68,68,0.4); font-family: 'JetBrains Mono', monospace;">0
+                      Alerts</span>
+                  </div>
+                </div>
+
+                <!-- Depletion System Network Health Header Summary Bar -->
+                <div id="depletionSummaryHeader" class="grid-3-col gap-2 p-2 mt-2"
+                  style="background: rgba(0,0,0,0.35); border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); font-size: 0.75rem; display: grid; grid-template-columns: repeat(3, 1fr); text-align: center;">
+                  <div style="padding: 4px;"><span style="color:#94a3b8; display:block; font-size: 0.7rem;">HEALTH
+                      SCORE</span><strong id="depHealthScore" style="color:#10b981; font-size:1.05rem;">100%</strong>
+                  </div>
+                  <div style="padding: 4px;"><span style="color:#94a3b8; display:block; font-size: 0.7rem;">CRITICAL
+                      WELLS</span><strong id="depCriticalCount" style="color:#ef4444; font-size:1.05rem;">0</strong>
+                  </div>
+                  <div style="padding: 4px;"><span style="color:#94a3b8; display:block; font-size: 0.7rem;">AVG
+                      DRAWDOWN</span><strong id="depAvgVel" style="color:#38bdf8; font-size:1.05rem;">0.00 m/mo</strong>
+                  </div>
+                </div>
+
+                <div id="alertsContainer" class="alerts-container mt-2"
+                  style="max-height: 550px; overflow-y: auto; margin-top: 1%;">
+                  <div class="alert-item alert-safe">✓ All wells operating within conformal safety bounds.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Panel 2: Interactive map and 3D aquified model ∨ -->
+        <section id="panelMaps" class="accordion-panel panel-collapsed">
+          <div class="vertical-tab-strip" onclick="switchMainPanel('panelMaps')">
+            <span class="tab-label">Interactive map and 3D aquified model&nbsp;&nbsp;&nbsp;&nbsp;V</span>
+          </div>
+          <div class="panel-content-wrapper">
+            <div class="panel-grid-dual">
+              <!-- Map 1: Interactive GIS Terrain & Hydro Map -->
+              <div class="card glass-card card-full-h">
+                <div class="card-header">
+                  <div>
+                    <h3>Interactive GIS Terrain & Hydro Map</h3>
+                    <p class="card-sub">Topographic relief, hydrologic basins, & pinned query coordinates</p>
+                  </div>
+                  <span class="horizon-badge">Click map to pin location</span>
+                </div>
+                <div id="gisMap" class="gis-map-container flex-fill"></div>
+              </div>
+
+              <!-- Map 2: 3D Interactive Aquifer & Water Table Visualizer (WebGL) -->
+              <div class="card glass-card card-full-h">
+                <div class="card-header">
+                  <div>
+                    <h3>Topological 3D Aquifer & Water Table Visualizer (WebGL)</h3>
+                    <p class="card-sub">3D Terrain mesh, animated water table drawdown, & Sea Level datum plane</p>
+                  </div>
+                  <span class="horizon-badge">Rotate 3D: Click & Drag</span>
+                </div>
+                <div class="elevation-legend-bar">
+                  <span id="chip-terrain" class="elevation-chip chip-terrain chip-active"
+                    onclick="toggle3DLayer('terrain')">Ground Surface</span>
+                  <span id="chip-vadose" class="elevation-chip chip-vadose chip-active"
+                    onclick="toggle3DLayer('vadose')">Vadose Zone</span>
+                  <span id="chip-water" class="elevation-chip chip-water chip-active"
+                    onclick="toggle3DLayer('water')">Water Table</span>
+                  <span id="chip-aquifer" class="elevation-chip chip-aquifer chip-active"
+                    onclick="toggle3DLayer('aquifer')">Aquifer</span>
+                  <span id="chip-aquitard" class="elevation-chip chip-aquitard chip-active"
+                    onclick="toggle3DLayer('aquitard')">Clay Aquitard</span>
+                  <span id="chip-sealevel" class="elevation-chip chip-sealevel chip-active"
+                    onclick="toggle3DLayer('sealevel')">Sea Level (0m)</span>
+                  <span id="chip-bedrock" class="elevation-chip chip-bedrock chip-active"
+                    onclick="toggle3DLayer('bedrock')">Bedrock</span>
+                </div>
+                <div id="aquifer3D" class="aquifer-3d-container flex-fill"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Panel 3: Predictions ∨ (EXPANDED BY DEFAULT) -->
+        <section id="panelPredictions" class="accordion-panel panel-expanded">
+          <div class="vertical-tab-strip" onclick="switchMainPanel('panelPredictions')">
+            <span class="tab-label">Predictions&nbsp;&nbsp;&nbsp;&nbsp;V</span>
+          </div>
+          <div class="panel-content-wrapper">
+            <div class="panel-grid-dual">
+              <!-- Plot 1: Spatial Hydraulic Head Drawdown Raster (Heat Map) -->
+              <div class="card glass-card card-full-h">
+                <div class="card-header">
+                  <div>
+                    <h3>Spatial Hydraulic Head Drawdown Raster (GWLA / GWSA)</h3>
+                    <p class="card-sub">Basin 16x16 grid forecast across planning horizon</p>
+                  </div>
+                  <span class="horizon-badge">Step: <span id="timestepDisplay">t = 12</span></span>
+                </div>
+                <div id="gridHeatmap" class="grid-heatmap flex-fill"></div>
+                <div class="heatmap-legend">
+                  <span>Depleted (0m)</span>
+                  <div class="legend-bar"></div>
+                  <span>Saturated (5m+)</span>
+                </div>
+              </div>
+
+              <!-- Plot 2: Piezometric Head Forecast & Split Conformal Bounds -->
+              <div id="plot2Card" class="card glass-card card-full-h" style="position: relative;">
+                <!-- Dedicated Loading Overlay for Plot 2 -->
+                <div id="plot2LoadingOverlay" class="plot-loading-overlay" style="display: none;">
+                  <div class="plot-spinner-box">
+                    <div class="spinner"></div>
+                    <span id="plot2LoadingText">Solving SCP &amp; Computing Conformal Bounds...</span>
+                  </div>
+                </div>
+
+                <div class="card-header flex-between flex-wrap gap-2">
+                  <div>
+                    <h3>Piezometric Head Forecast &amp; Split Conformal Bounds</h3>
+                    <p class="card-sub">Point location hydraulic head time series with 95% safety intervals</p>
+                  </div>
+                  <div class="horizon-controls-wrap">
+                    <div class="flex-align-center gap-1">
+                      <button class="btn-horizon-chip" onclick="setCustomChartHorizon(6, this)">6M</button>
+                      <button class="btn-horizon-chip active" onclick="setCustomChartHorizon(12, this)">12M</button>
+                      <button class="btn-horizon-chip" onclick="setCustomChartHorizon(24, this)">24M</button>
+                      <button class="btn-horizon-chip" onclick="setCustomChartHorizon(36, this)">36M</button>
+                    </div>
+                    <div class="custom-month-input-wrap">
+                      <input type="number" id="customMonthInput" min="1" max="60" value="12" placeholder="Months"
+                        class="custom-month-input" />
+                      <button onclick="applyCustomMonthInput()" class="btn-apply-month">Apply</button>
+                    </div>
+                    <span id="chartHorizonBadge" class="horizon-badge">12-Month Horizon</span>
+                  </div>
+                </div>
+                <div class="chart-container flex-fill">
+                  <canvas id="conformalChart"></canvas>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </main>
+    </section>
+
+    <!-- SCREEN 2: Fullscreen Capstone Project Footer (Matching Uploaded Image) -->
+    <footer class="screen-section screen-footer">
+      <div class="fullscreen-footer-content">
+        <div class="footer-hero-block">
+          <h1 class="fullscreen-footer-title">Satellite Enhanced Groundwater Prediction system</h1>
+          <div class="fullscreen-footer-year">2026</div>
+        </div>
+
+        <div class="fullscreen-footer-subtitle">
+          For Capstone Project, AIML Department, DSATM, 2026
+        </div>
+
+        <div class="fullscreen-footer-credits">
+          <div class="fullscreen-footer-col">
+            <div class="fullscreen-footer-heading">Implemented by:</div>
+            <div class="fullscreen-footer-text">Anoop S S</div>
+            <div class="fullscreen-footer-text">Driti S</div>
+            <div class="fullscreen-footer-text">Hruthik C P</div>
+            <div class="fullscreen-footer-text">Tejashwini M B</div>
+          </div>
+
+          <div class="fullscreen-footer-col">
+            <div class="fullscreen-footer-heading">Under the Guidence:</div>
+            <div class="fullscreen-footer-text">Dr. N. Sandhya</div>
+            <div class="fullscreen-footer-text">Dr. Shivaprasad A Chikop</div>
+          </div>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Interactive System Help Guide Modal -->
+  <div id="helpModal" class="help-modal-overlay" onclick="closeHelpModalOnOutside(event)">
+    <div class="help-modal-card">
+      <div class="help-modal-header">
+        <h2>System Help & User Guide</h2>
+        <button class="btn-close-modal" onclick="closeHelpModal()">✕</button>
+      </div>
+      <div class="help-modal-body">
+
+        <div class="help-section">
+          <h4>1. How to Predict Groundwater Levels</h4>
+          <p>1. Select a <strong>Hydrogeological Region Domain</strong> (e.g. Illinois, North German Basin, High Plains,
+            Indo-Gangetic Basin).</p>
+          <p>2. Enter your query <strong>Latitude</strong> and <strong>Longitude</strong> coordinates into the formula
+            bar.</p>
+          <p>3. Choose your <strong>Data Source</strong> (Synthetic Benchmark Engine or Realtime NASA EarthData / GEE
+            API).</p>
+          <p>4. Click <strong>FETCH</strong> to run predictions, update spatial heatmaps, 3D WebGL models, and conformal
+            bounds.</p>
+        </div>
+
+        <div class="help-section mt-3">
+          <h4>2. Navigating Maps & 3D WebGL Models</h4>
+          <p>• <strong>Interactive GIS Map</strong>: Toggle between Terrain, Hydro, & Satellite layers. Click anywhere
+            on the map to pin query coordinates.</p>
+          <p>• <strong>3D WebGL Aquifer Visualizer</strong>: Click and drag to rotate 360°, scroll to zoom. Visualizes
+            Topography, Water Table, Sea Level (0.0m MSL), and Bedrock Floor.</p>
+          <p>• <strong>Spatial Drawdown Raster</strong>: 16x16 grid heatmap displaying hydraulic head distribution.</p>
+        </div>
+
+        <div class="help-section mt-3">
+          <h4>3. Safety Limits & Pumping Quota Optimization</h4>
+          <p>• <strong>Split Conformal UQ</strong>: Calculates a distribution-free safety buffer (q̂ = 0.496m) to
+            prevent well depletion during droughts.</p>
+          <p>• <strong>SCP CCMPC Optimizer</strong>: Click <strong>Optimize Pumping Quotas</strong> under Parameters to
+            solve sustainable monthly extraction limits ($E^*$).</p>
+        </div>
+
+        <div class="help-section mt-3">
+          <h4>4. Generating Location Reports</h4>
+          <p>• Once you click <strong>FETCH</strong>, the <strong>Generate Report</strong> button appears in the top
+            formula bar.</p>
+          <p>• Click <strong>Generate Report</strong> to view and print a comprehensive geodetic location assessment
+            report.</p>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Webpage User Guide Glassmorphic Modal -->
+  <div id="webpageGuideModal" class="guide-modal-overlay hidden"
+    onclick="if(event.target===this) closeWebpageGuideModal()">
+    <div class="guide-modal-card glass-card">
+      <div class="guide-modal-header">
+        <div>
+          <h3>Webpage User Guide & Workflow Instructions</h3>
+          <p style="margin: 2px 0 0 0; font-size: 0.78rem; color: #94a3b8;">How to navigate, configure forecasts, and
+            optimize pumping quotas</p>
+        </div>
+        <button class="guide-modal-close" onclick="closeWebpageGuideModal()">&times;</button>
+      </div>
+
+      <div class="guide-modal-body">
+        <div class="guide-step-card">
+          <div class="guide-step-num">1</div>
+          <div class="guide-step-content">
+            <h4>Top Formula Bar (Data Ingestion & Location)</h4>
+            <p>Select a hydrogeological region (e.g. Ganges Basin, Ogallala Aquifer) or enter custom <strong>(Latitude,
+                Longitude)</strong> coordinates. Choose between Synthetic Benchmark data or Realtime NASA/GEE API, then
+              click <strong>FETCH</strong> to run localized predictions. Click <strong>Generate Report</strong> for a
+              dynamic printable PDF report.</p>
+          </div>
+        </div>
+
+        <div class="guide-step-card">
+          <div class="guide-step-num">2</div>
+          <div class="guide-step-content">
+            <h4>Panel 1: Parameters & Framework Layer Status</h4>
+            <p>Expand Panel 1 to configure SCP CCMPC Optimizer parameters (Horizon N, h_min, h_target, α). Inspect the
+              7-Layer Scientific Machine Learning pipeline status (Geospatial Ingestion, GRACE Downscaling, Vadose
+              Delay, GNN-LSTM Surrogates, Split Conformal Calibration, SCP Solver, and Feature Ablation Benchmarks).</p>
+          </div>
+        </div>
+
+        <div class="guide-step-card">
+          <div class="guide-step-num">3</div>
+          <div class="guide-step-content">
+            <h4>Panel 2: Interactive Map & 3D WebGL Aquifer Model</h4>
+            <p>Expand Panel 2 to view Leaflet GIS spatial drawdown heatmaps, piezometric monitoring wells, and the 3D
+              WebGL Stratigraphic Stack (z_terrain, z_vadose, z_water, z_bedrock). Click any well on the map or click
+              <strong>📍 Pin Well Coordinate</strong> to center and inspect specific location predictions.
+            </p>
+          </div>
+        </div>
+
+        <div class="guide-step-card">
+          <div class="guide-step-num">4</div>
+          <div class="guide-step-content">
+            <h4>Panel 3: Piezometric Forecast & Depletion Warnings</h4>
+            <p>Expand Panel 3 to analyze multi-month piezometric head forecasts (6M to 36M) with Split Conformal
+              uncertainty bounds (q̂). Review optimal pumping quota allocations per well and monitor real-time Depletion
+              Warnings (h_safe, drawdown velocity m/mo, time-to-depletion, and recommended pumping cuts).</p>
+          </div>
+        </div>
+
+        <div class="guide-step-card" style="border-left: 3px solid #10b981; background: rgba(16, 185, 129, 0.08);">
+          <div class="guide-step-num" style="background: #10b981; color: #ffffff;">🔴🟢</div>
+          <div class="guide-step-content">
+            <h4>Red / Green Status Indicator Light</h4>
+            <p><strong>🟢 Green Light:</strong> System server connection active &amp; ready for queries.<br><strong>🔴
+                Red Light:</strong> Data fetching, downscaling, or SCP optimization active in background.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="guide-modal-footer">
+        <button class="btn btn-primary" style="padding: 6px 20px;" onclick="closeWebpageGuideModal()">Got It, Let's
+          Start!</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+
+</html>

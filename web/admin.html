@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Admin Control Center - Groundwater Framework</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="top-nav">
+      <div class="brand">
+        <div class="logo-icon">⚙️</div>
+        <div>
+          <h1>Admin Control Center <span>v1.0</span></h1>
+          <p class="subtitle">System Telemetry, Audit Logs, Data Channels & Model Maintenance</p>
+        </div>
+      </div>
+      <div class="nav-controls">
+        <a href="/" class="btn btn-secondary-nav">📊 Back to User Dashboard</a>
+        <div class="status-indicator">
+          <span class="pulse-dot"></span>
+          <span id="adminStatusText">Admin Active</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Telemetry Cards Row -->
+    <section class="telemetry-grid">
+      <div class="card glass-card stat-card">
+        <div class="stat-title">Active Data Channel</div>
+        <div class="stat-value" id="statDataMode">SYNTHETIC</div>
+        <div class="stat-sub" id="statGridShape">Grid: 16x16 (4km)</div>
+      </div>
+      <div class="card glass-card stat-card">
+        <div class="stat-title">Conformal Error Margin</div>
+        <div class="stat-value" id="statQHat">q̂ = 0.28m</div>
+        <div class="stat-sub" id="statAlpha">Alpha: 0.05 (95% Safety)</div>
+      </div>
+      <div class="card glass-card stat-card">
+        <div class="stat-title">Total SCP CCMPC Solves</div>
+        <div class="stat-value" id="statTotalSolves">0</div>
+        <div class="stat-sub">Optimization executions</div>
+      </div>
+      <div class="card glass-card stat-card">
+        <div class="stat-title">Avg Optimization Cost</div>
+        <div class="stat-value" id="statAvgCost">$0.00</div>
+        <div class="stat-sub">Across historical runs</div>
+      </div>
+    </section>
+
+    <!-- Controls & Actions Section -->
+    <section class="admin-main-grid">
+      <div class="card glass-card">
+        <h3>Data Channel Switcher</h3>
+        <p class="card-sub">Toggle between offline synthetic data and live NASA EarthData / GEE API streams.</p>
+        
+        <div class="channel-switch-box">
+          <div class="channel-option" id="channelSyntheticOpt">
+            <h4>Synthetic Benchmark Engine</h4>
+            <p>Generates physically consistent hydroclimatic rasters for offline testing.</p>
+          </div>
+          <div class="channel-option" id="channelRealtimeOpt">
+            <h4>Real-Time GEE & EarthData</h4>
+            <p>Live satellite ingestion (CHIRPS, MODIS, GLDAS, CSR GRACE mascons).</p>
+          </div>
+        </div>
+
+        <div class="mt-4 flex-gap">
+          <button class="btn btn-primary" onclick="toggleDataChannel('synthetic')">Set to Synthetic Mode</button>
+          <button class="btn btn-primary" style="background: linear-gradient(135deg, #10b981, #059669);" onclick="toggleDataChannel('realtime')">Set to Real-Time GEE Mode</button>
+        </div>
+      </div>
+
+      <div class="card glass-card">
+        <h3>Model Maintenance & Operations</h3>
+        <p class="card-sub">Trigger on-demand surrogate recalibrations or export audit logs.</p>
+        
+        <div class="action-buttons-list">
+          <button class="btn btn-primary btn-glow" onclick="recalibrateConformal()">⚡ Recalibrate Conformal Predictor</button>
+          <a href="/api/v1/admin/export_history" class="btn btn-secondary-nav" style="text-align: center; text-decoration: none;">📥 Export History Log (CSV)</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Historical Audit Log Table -->
+    <section class="card glass-card">
+      <div class="card-header">
+        <div>
+          <h3>System Audit Trail & History Log</h3>
+          <p class="card-sub">Chronological record of data channel switches, optimizations, and model updates</p>
+        </div>
+        <button class="btn btn-secondary-nav" onclick="fetchAdminHistory()">🔄 Refresh History</button>
+      </div>
+
+      <div class="table-scroll" style="max-height: 400px;">
+        <table class="quota-table">
+          <thead>
+            <tr>
+              <th>Timestamp</th>
+              <th>Event Type</th>
+              <th>Channel Mode</th>
+              <th>Event Details / Parameters</th>
+              <th>Horizon</th>
+              <th>q̂ Margin</th>
+              <th>Avg Quota</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="historyTableBody">
+            <!-- Dynamic History Entries -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <script src="/static/admin.js"></script>
+</body>
+</html>
