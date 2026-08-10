@@ -899,6 +899,7 @@ function validateAndSubmitDetails(e) {
     if (sourceLabelSpan) {
       sourceLabelSpan.innerText = selectedInputPageSource === "realtime" ? "NASA EarthData & GEE API" : "Synthetic Benchmark Engine";
     }
+    setDataSourceMode(selectedInputPageSource);
   }
 
   // 3. Save session state & transition to Dashboard
@@ -1273,6 +1274,28 @@ function selectChoiceRegion(value, labelText) {
     changeRegionPreset();
   }
   closeAllChoicePickers();
+}
+
+async function setDataSourceMode(mode) {
+  try {
+    const res = await fetch("/api/v1/config/data_source", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ data_mode: mode }),
+    });
+    const data = await res.json();
+    await updateGEEStatusBadge();
+    await fetchUnifiedControl();
+  } catch (err) {
+    console.error("Data source mode switch error:", err);
+  }
+}
+
+function toggleDataSourceChannel() {
+  const selectEl = document.getElementById("dataSourceSelect");
+  if (selectEl) {
+    setDataSourceMode(selectEl.value);
+  }
 }
 
 function selectChoiceSource(value, labelText) {

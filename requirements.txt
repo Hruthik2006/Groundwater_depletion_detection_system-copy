@@ -9,3 +9,5 @@ osqp>=0.6.2
 fastapi>=0.75.0
 uvicorn>=0.17.0
 pydantic>=1.9.0
+earthengine-api>=0.1.300
+python-dotenv>=0.19.0
