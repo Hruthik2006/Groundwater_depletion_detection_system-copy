@@ -1020,27 +1020,44 @@ if os.path.exists(web_dir):
       </div>
 
       <div class="sec" id="s2">
-        <h2>2. Remote Sensing Data Sources</h2>
+        <h2>2. Remote Sensing &amp; Subsurface Data Sources</h2>
         <table>
-          <thead><tr><th>Parameter</th><th>Source</th><th>Resolution</th><th>Sampling</th><th>Processing Method</th></tr></thead>
+          <thead><tr><th>Parameter</th><th>Source</th><th>Resolution</th><th>Sampling</th><th>Processing &amp; Formulation Method</th></tr></thead>
           <tbody>
             <tr><td>Precipitation (\(P\))</td><td>CHIRPS v2.0 / v3.0</td><td>~5.6 km (0.05&deg;)</td><td>Daily / Pentad</td><td>Bilinear interpolation to 4 km target grid</td></tr>
             <tr><td>Evapotranspiration (\(ET\))</td><td>MODIS MOD16A2 / WaPOR</td><td>500 m</td><td>8-day / Monthly</td><td>Spatial accumulation &amp; temporal aggregation</td></tr>
-            <tr><td>Soil Moisture (\(\text{SMSA}\))</td><td>GLDAS Noah L4 V2.1</td><td>~27.8 km (0.25&deg;)</td><td>Monthly</td><td>Grid mapping to fine sub-pixels</td></tr>
+            <tr><td>Soil Moisture (\(\text{SMSA}\))</td><td>GLDAS Noah L4 V2.1</td><td>~27.8 km (0.25&deg;)</td><td>Monthly</td><td>Grid mapping across 4 depth layers (0&ndash;200 cm)</td></tr>
             <tr><td>Surface Runoff (\(Q_s\))</td><td>GLDAS Noah L4 V2.1</td><td>~27.8 km</td><td>Monthly</td><td>Mass-preserving spatial aggregation</td></tr>
             <tr><td>Snow Water Equivalent (\(\text{SWEA}\))</td><td>GLDAS Noah L4 V2.1</td><td>~27.8 km</td><td>Monthly</td><td>Grid mapping to fine sub-pixels</td></tr>
             <tr><td>Canopy Water Storage (\(\text{CWSA}\))</td><td>GLDAS Noah L4 V2.1</td><td>~27.8 km</td><td>Monthly</td><td>Grid mapping to fine sub-pixels</td></tr>
             <tr><td>Terrestrial Water Storage (\(\text{TWSA}\))</td><td>CSR GRACE/GRACE-FO RL06.2 Mascons</td><td>~300 km mascons</td><td>Monthly</td><td>Native mascon masking &amp; land-ocean separation</td></tr>
-            <tr><td>Hydraulic Head (\(G\))</td><td>Piezometer observation wells</td><td>Point coordinate</td><td>Daily / Monthly</td><td>Spatial point extraction &amp; cubic spline fill</td></tr>
-            <tr><td>Specific Yield (\(S_y\))</td><td>Borehole log analysis</td><td>Point / Interpolated</td><td>Static</td><td>Kriging spatial interpolation</td></tr>
+            <tr><td>Soil Texture (Clay, Sand, Silt)</td><td>ISRIC SoilGrids 250m v2.0</td><td>250 m (6 depth layers)</td><td>Static</td><td>Rosetta pedotransfer function for \(S_y(x,y) = \theta_s - \theta_{fc}\)</td></tr>
+            <tr><td>Depth to Bedrock (\(\text{DTB}\))</td><td>Shangguan et al. / EarthEnv</td><td>250 m</td><td>Static</td><td>Parameterizes 2D Gamma vadose lag parameters \(\alpha_{\text{lag}}, \beta_{\text{lag}}\)</td></tr>
+            <tr><td>Topography (Elev, TRI, TPI)</td><td>EarthEnv / SRTM v4.1</td><td>90 m / 250 m</td><td>Static</td><td>Terrain roughness index &amp; position index derivatives</td></tr>
+            <tr><td>Hydraulic Head (\(G\))</td><td>Piezometer observation wells (USGS NWIS)</td><td>Point coordinate</td><td>Daily / Monthly</td><td>Spatial point extraction &amp; cubic spline fill</td></tr>
+            <tr><td>Specific Yield (\(S_y\))</td><td>Pedotransfer / Borehole log</td><td>Point / Grid</td><td>Static</td><td>Derived via SoilGrids pedotransfer &amp; kriging</td></tr>
           </tbody>
         </table>
+
+        <h3>Environment Variables &amp; API Keys Configuration</h3>
+        <p>Real-time remote sensing data streams and Google Earth Engine endpoints require credentials configured in <code>.env</code>:</p>
+        <div class="pipeline"># Environment Configuration (.env)
+GEE_PROJECT_ID=your_gee_project_id_here
+EARTHDATA_USERNAME=your_earthdata_username
+EARTHDATA_PASSWORD=your_earthdata_password
+EARTHDATA_BEARER_TOKEN=your_earthdata_token_here
+USGS_API_KEY=your_usgs_api_key_here
+MAPBOX_ACCESS_TOKEN=your_mapbox_token_here</div>
+        <div class="info-box"><p>&#128161; <strong>One-Time GEE Authorization:</strong> Run <code>earthengine authenticate</code> in your terminal once to authorize persistent OAuth2 tokens for Google Earth Engine image collection sampling.</p></div>
       </div>
 
       <div class="sec" id="s3">
-        <h2>3. Geospatial Ingestion, Reprojection, and Scale Alignment</h2>
+        <h2>3. Geospatial Ingestion, Reprojection, and Interactive Location Pinning</h2>
         <p>The initial phase establishes an automated data ingestion pipeline to fetch, mask, align, and synchronize spatial and temporal hydroclimatic variables derived from satellite remote sensing platforms, land surface models, and ground monitoring networks. Spatial processing standardizes incoming heterogeneous rasters to a uniform <strong>4 km &times; 4 km</strong> target grid in the <strong>EPSG:4326 (WGS84)</strong> coordinate reference system across the study basin.</p>
         <p>Automated programmatic pipelines utilize the <strong>Google Earth Engine Python API</strong> (<code>ee</code>) and <strong>NASA EarthData</strong> authentication protocols. CHIRPS provides precipitation at ~5.6 km pentad resolution; MODIS MOD16A2 provides 8-day ET at 500 m; GLDAS Noah L4 V2.1 provides monthly shallow storage at 0.25&deg;. All spatial rasters are clipped using <code>rioxarray</code>. Missing ground-well observations are imputed using <strong>spatiotemporal cubic spline interpolation</strong>.</p>
+
+        <h3>Interactive GIS Pin Auto-Region Detection</h3>
+        <p>Whenever a pin marker is dragged or clicked on the 3D GIS Terrain map, the system automatically evaluates coordinates \(\text{(lat, lon)}\) against known hydrogeological study basins (Ganges, High Plains, North German Basin, Illinois, or custom coordinates). If the pin moves to another basin, the framework auto-switches data streams, re-downscales satellite rasters, and re-computes 3D WebGL subsurface profiles, risk alerts, and pumping quotas for the pinned location.</p>
         <p>Dynamic predictors across all grid cells are scaled via z-score normalization based on historical baseline statistics:</p>
         <div class="math">\[\tilde{X}(x, y, t) = \frac{X(x, y, t) - \mu_X(x, y)}{\sigma_X(x, y)}\]</div>
       </div>
@@ -1061,14 +1078,17 @@ if os.path.exists(web_dir):
         <p>Because GRACE measures the total integrated water column, deep Groundwater Storage Anomalies (GWSA) are isolated by subtracting shallow storage components:</p>
         <div class="math">\[\text{GWSA}(x,y,t) = \text{TWSA}_\text{scaled}(x,y,t) - \left(\text{SMSA} + \text{SWEA} + \text{CWSA}\right)(x,y,t)\]</div>
 
-        <h3>Phase 4 &mdash; Hydraulic Head Translation</h3>
-        <p>The isolated equivalent water height anomaly is translated into localized piezometric Groundwater Level Anomalies (GWLA, in metres) using the spatial specific yield \(S_y(x,y)\):</p>
-        <div class="math">\[\text{GWLA}(x,y,t) = \frac{\text{GWSA}(x,y,t)}{S_y(x,y)}\]</div>
+        <h3>Phase 4 &mdash; Hydraulic Head Translation &amp; SoilGrids Pedotransfer Functions</h3>
+        <p>The isolated equivalent water height anomaly is translated into localized piezometric Groundwater Level Anomalies (GWLA, in metres) using spatial specific yield \(S_y(x,y)\) derived via ISRIC SoilGrids 250m pedotransfer equations:</p>
+        <div class="math">\[\theta_s = 0.427 - 0.001 \times \text{clay} + 0.003 \times \text{sand}\]</div>
+        <div class="math">\[\theta_{fc} = 0.046 + 0.0025 \times \text{clay} + 0.0005 \times \text{silt}\]</div>
+        <div class="math">\[S_y(x,y) = \text{clip}\!\left(\theta_s - \theta_{fc},\; 0.02,\; 0.35\right), \qquad \text{GWLA}(x,y,t) = \frac{\text{GWSA}(x,y,t)}{S_y(x,y)}\]</div>
 
-        <h3>Phase 5 &mdash; Unsaturated Vadose Zone Delay</h3>
-        <p>Surface net recharge does not reach the saturated water table instantaneously. Physical transit through the unsaturated vadose zone is modelled by convolving with a parameterized Gamma distribution kernel \(K_\gamma\) derived from sediment thickness and soil hydraulic conductivity:</p>
-        <div class="math">\[K_\gamma(\tau;\, a, b) = \frac{\tau^{a-1}\, e^{-\tau/b}}{b^a\, \Gamma(a)}\]</div>
-        <div class="math">\[R_\text{eff}(x,y,t) = \int_0^t \bigl(P(x,y,\tau) - ET(x,y,\tau)\bigr) \cdot K_\gamma(t-\tau;\,a,b)\; d\tau\]</div>
+        <h3>Phase 5 &mdash; Unsaturated Vadose Zone Delay (DTB Parameterized Gamma Kernel)</h3>
+        <p>Surface net recharge does not reach the saturated water table instantaneously. Physical transit through the unsaturated vadose zone is modelled by convolving net recharge with a spatially-varying Gamma distribution kernel \(K_\gamma\) parameterized by Depth to Bedrock (\(\text{DTB}\)) and clay content:</p>
+        <div class="math">\[\alpha_{\text{lag}}(x,y) = 1.5 + 0.05 \times \text{DTB}(x,y), \qquad \beta_{\text{lag}}(x,y) = 1.0 + 0.02 \times \text{clay}(x,y)\]</div>
+        <div class="math">\[K_\gamma(\tau;\, \alpha_\text{lag}, \beta_\text{lag}) = \frac{\tau^{\alpha_\text{lag}-1}\, e^{-\tau/\beta_\text{lag}}}{\beta_\text{lag}^{\alpha_\text{lag}}\, \Gamma(\alpha_\text{lag})}\]</div>
+        <div class="math">\[R_\text{eff}(x,y,t) = \int_0^t \bigl(P(x,y,\tau) - ET(x,y,\tau) - Q_s(x,y,\tau)\bigr) \cdot K_\gamma(t-\tau;\, \alpha_\text{lag}, \beta_\text{lag})\; d\tau\]</div>
       </div>
 
       <div class="sec" id="s5">
