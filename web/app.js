@@ -1024,6 +1024,9 @@ async function setCustomChartHorizon(months, btnEl) {
   const card1HVal = document.getElementById("inputHVal");
   if (card1HVal) card1HVal.value = months;
 
+  const hiddenH = document.getElementById("inputH");
+  if (hiddenH) hiddenH.value = months;
+
   const badgeEl = document.getElementById("chartHorizonBadge");
   if (badgeEl) badgeEl.innerText = `${months}-Month Horizon`;
 
@@ -1291,7 +1294,14 @@ async function predictPointLocation() {
 function openLocationReport() {
   const lat = parseFloat(document.getElementById("inputLat").value);
   const lon = parseFloat(document.getElementById("inputLon").value);
-  const horizon = parseInt(document.getElementById("inputH").value);
+
+  const customH = document.getElementById("customMonthInput");
+  const card1H = document.getElementById("inputHVal");
+  const hiddenH = document.getElementById("inputH");
+
+  const horizon = parseInt(customH && customH.value ? customH.value : (card1H && card1H.value ? card1H.value : (hiddenH && hiddenH.value ? hiddenH.value : 12))) || currentChartHorizon || 12;
+
+  if (hiddenH) hiddenH.value = horizon;
 
   const reportUrl = `/api/v1/reports/view?lat=${lat}&lon=${lon}&horizon=${horizon}`;
   window.open(reportUrl, "_blank");

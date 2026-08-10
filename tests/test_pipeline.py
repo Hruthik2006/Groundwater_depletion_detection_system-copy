@@ -171,6 +171,16 @@ def test_report_generation():
     assert "Detailed Groundwater Location Assessment" in res_report.text
     assert "Recommended Pumping Allocation" in res_report.text
 
+    res_report_24 = client.get("/api/v1/reports/view?lat=40.15&lon=-88.25&horizon=24")
+    assert res_report_24.status_code == 200
+    assert "24-Month Projected Head" in res_report_24.text
+    assert "Month 24" in res_report_24.text
+
+    res_report_48 = client.get("/api/v1/reports/view?lat=40.15&lon=-88.25&horizon=48")
+    assert res_report_48.status_code == 200
+    assert "48-Month Projected Head" in res_report_48.text
+    assert "Month 48" in res_report_48.text
+
 
 def test_3d_endpoint():
     client = TestClient(app)

@@ -225,10 +225,11 @@ def predict_location_groundwater(req: LocationPredictRequest):
     q_hat = state.conformal.q_hat
 
     G_base = 40.0 + (row + col) * 0.3
-    horizon = min(req.horizon, GWLA.shape[0])
+    horizon = max(1, req.horizon)
+    T_max = GWLA.shape[0]
     
-    gwla_series = GWLA[:horizon, row, col].tolist()
-    reff_series = Reff[:horizon, row, col].tolist()
+    gwla_series = [float(GWLA[t % T_max, row, col]) for t in range(horizon)]
+    reff_series = [float(Reff[t % T_max, row, col]) for t in range(horizon)]
 
     head_series = []
     lower_bounds = []
@@ -265,7 +266,7 @@ def predict_location_groundwater(req: LocationPredictRequest):
             "gwla_anomalies_m": gwla_series,
             "effective_recharge_cm": reff_series,
         },
-        "raster_slice": GWLA[horizon - 1].tolist(),
+        "raster_slice": GWLA[(horizon - 1) % T_max].tolist(),
     }
 
 
@@ -284,15 +285,16 @@ def view_location_report(lat: float = 40.15, lon: float = -88.25, horizon: int =
     q_hat = state.conformal.q_hat
 
     G_base = 40.0 + (row + col) * 0.3
-    h_len = min(horizon, GWLA.shape[0])
+    h_len = max(1, horizon)
+    T_max = GWLA.shape[0]
 
     table_rows = ""
     heads = []
     recharges = []
     
     for t_idx in range(h_len):
-        gwla = float(GWLA[t_idx, row, col])
-        rf = float(Reff[t_idx, row, col])
+        gwla = float(GWLA[t_idx % T_max, row, col])
+        rf = float(Reff[t_idx % T_max, row, col])
         head = G_base + gwla + 0.02 * rf
         lower = head - q_hat
         upper = head + q_hat
@@ -312,7 +314,7 @@ def view_location_report(lat: float = 40.15, lon: float = -88.25, horizon: int =
         </tr>
         """
 
-    rec_quota = max(0.0, (G_base + GWLA[h_len-1, row, col] - 35.0 - q_hat) * Sy * 50.0)
+    rec_quota = max(0.0, (G_base + float(GWLA[(h_len-1) % T_max, row, col]) - 35.0 - q_hat) * Sy * 50.0)
     region_name = state.dataset["metadata"].get("region_name", "Study Aquifer Region")
     
     min_h = min(heads) if heads else G_base
@@ -641,11 +643,14 @@ def compute_pumping_quotas(req: PumpingQuotaRequest):
     state.conformal.alpha = req.alpha
     q_hat = state.conformal.q_hat
 
+    state.mpc.H = req.horizon
     G_0 = state.dataset["wells"]["G_filled"][:, -1]
     num_wells = len(G_0)
 
     climate_horizon = np.zeros((req.horizon, num_wells, 2))
-    climate_horizon[:, :, 0] = state.Reff[:req.horizon, :num_wells, 0] if state.Reff.ndim == 3 else 0.5
+    T_max = state.Reff.shape[0]
+    for t_step in range(req.horizon):
+        climate_horizon[t_step, :, 0] = state.Reff[t_step % T_max, :num_wells, 0] if state.Reff.ndim == 3 else 0.5
 
     static_geo = np.column_stack([
         state.dataset["geophysics"]["K"][:num_wells, 0],
