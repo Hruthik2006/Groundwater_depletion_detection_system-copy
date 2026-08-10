@@ -52,6 +52,8 @@ class SystemState:
             self.dataset["rasters_raw"]["P"],
             self.dataset["rasters_raw"]["ET"],
             self.dataset["rasters_raw"]["Qs"],
+            DTB=self.dataset["geophysics"].get("DTB"),
+            clay=self.dataset["geophysics"].get("clay"),
         )
         # Calibrate conformal predictor using real surrogate forward pass
         self.calibrate_conformal_from_surrogate()
@@ -171,6 +173,8 @@ def set_location_config(req: LocationConfigRequest):
         state.dataset["rasters_raw"]["P"],
         state.dataset["rasters_raw"]["ET"],
         state.dataset["rasters_raw"]["Qs"],
+        DTB=state.dataset["geophysics"].get("DTB"),
+        clay=state.dataset["geophysics"].get("clay"),
     )
 
     state.log_event("LOCATION_SWITCH", f"Location region set to {req.region_key} (Name: {state.dataset['metadata'].get('region_name', 'N/A')}).")
@@ -200,6 +204,8 @@ def _ensure_region_for_coords(lat: float, lon: float):
             state.dataset["rasters_raw"]["P"],
             state.dataset["rasters_raw"]["ET"],
             state.dataset["rasters_raw"]["Qs"],
+            DTB=state.dataset["geophysics"].get("DTB"),
+            clay=state.dataset["geophysics"].get("clay"),
         )
         state.calibrate_conformal_from_surrogate()
         state.log_event("AUTO_REGION_SWITCH", f"Auto-switched region to '{target_region}' for pinned coordinates ({lat}, {lon}).")

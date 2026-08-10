@@ -131,19 +131,40 @@ class SyntheticDataProvider(BaseDataProvider):
         np.random.seed(self.seed + 2)
         H, W = self.height, self.width
         
-        # Specific yield Sy: 0.05 to 0.20
         y, x = np.ogrid[:H, :W]
-        Sy = 0.10 + 0.05 * np.sin(np.pi * x / W) * np.cos(np.pi * y / H)
+
+        # SoilGrids Texture (Clay, Sand, Silt fractions in %)
+        clay = np.clip(25.0 + 15.0 * np.sin(np.pi * y / H) + np.random.normal(0, 1.5, (H, W)), 5.0, 60.0)
+        sand = np.clip(45.0 + 20.0 * np.cos(np.pi * x / W) + np.random.normal(0, 2.0, (H, W)), 10.0, 80.0)
+        silt = np.maximum(0.0, 100.0 - clay - sand)
+
+        # Pedotransfer Function (Rosetta / Wösten / Marçais et al.) for Specific Yield Sy
+        theta_s = 0.427 - 0.001 * clay + 0.003 * sand
+        theta_fc = 0.046 + 0.0025 * clay + 0.0005 * silt
+        Sy = np.clip(theta_s - theta_fc, 0.02, 0.35)
         
         # Hydraulic conductivity K (m/day): 5.0 to 30.0
         K = 15.0 + 10.0 * np.cos(np.pi * x / W) + np.random.normal(0, 1.0, (H, W))
         K = np.clip(K, 1.0, 50.0)
 
-        # Bedrock depth (m)
-        z_bedrock = 20.0 + 5.0 * (y / H) + np.random.normal(0, 0.5, (H, W))
+        # Shangguan et al. Depth to Bedrock DTB (m)
+        z_bedrock = np.clip(20.0 + 15.0 * (y / H) + np.random.normal(0, 1.5, (H, W)), 2.0, 100.0)
+        DTB = z_bedrock
+
+        # EarthEnv Topography suite: Elevation Z (m), Terrain Roughness Index (TRI), Topographic Position Index (TPI)
+        elevation = 200.0 + 80.0 * np.sin(np.pi * x / W) + 40.0 * np.cos(np.pi * y / H)
+        TRI = np.abs(np.gradient(elevation)[0]) + np.abs(np.gradient(elevation)[1])
+        TPI = elevation - (elevation.mean())
 
         return {
             "Sy": Sy,
             "K": K,
             "z_bedrock": z_bedrock,
+            "DTB": DTB,
+            "clay": clay,
+            "sand": sand,
+            "silt": silt,
+            "elevation": elevation,
+            "TRI": TRI,
+            "TPI": TPI,
         }
