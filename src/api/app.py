@@ -883,6 +883,8 @@ if os.path.exists(web_dir):
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Implementation Guide: Satellite-Enhanced Groundwater System</title>
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+  <link rel="alternate icon" type="image/png" href="/static/favicon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <script>
