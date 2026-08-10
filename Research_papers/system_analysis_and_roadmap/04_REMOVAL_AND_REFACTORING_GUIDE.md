@@ -44,7 +44,7 @@ To elevate the codebase from a functional prototype to a clean, production-ready
       G_next = G_t[0, 0, :] - 0.1 * E_t[0, 0, :] + 0.05 * climate_t[0, 0, :, 0]
   ```
 - **Why Refactor**: If the surrogate model fails to attach PyTorch gradients, the solver silently falls back to a hand-coded linear equation, bypassing the GNN-LSTM / PINN physics.
-- **Refactoring Target**: Raise an explicit warning or error when `requires_grad=True` is lost, ensuring state transition Jacobians $A_k = \partial f/\partial G$ and $B_k = \partial f/\partial E$ are always computed directly from the neural network computational graph.
+- **Refactoring Target**: Raise an explicit warning or error when `requires_grad=True` is lost, ensuring state transition Jacobians $A_k = \frac{\partial f}{\partial G}$ and $B_k = \frac{\partial f}{\partial E}$ are always computed directly from the neural network computational graph.
 
 ---
 
@@ -64,7 +64,7 @@ To elevate the codebase from a functional prototype to a clean, production-ready
 ---
 
 ### 2.4 Cleanup Static Inspection Images (`src/insp/`)
-- **Location**: `d:\Ground_water\src\insp\` (`home_page_2.png`, `landing_page.png`, etc.).
+- **Location**: `d:/Ground_water/src/insp/` (`home_page_2.png`, `landing_page.png`, etc.).
 - **Action**: These images were initial UI wireframes. If they are no longer rendered in `web/index.html` or `web/app.js`, remove them from `src/insp/` to keep the repository lightweight.
 
 ---

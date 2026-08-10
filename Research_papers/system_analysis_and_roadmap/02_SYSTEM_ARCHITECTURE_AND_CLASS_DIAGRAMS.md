@@ -10,37 +10,38 @@
 ```mermaid
 graph TD
     subgraph Data Acquisition & Ingestion Layer
-        A1[CHIRPS Precipitation] --> B[GroundwaterDataLoader]
-        A2[MODIS Evapotranspiration] --> B
-        A3[GLDAS Soil/Snow/Canopy] --> B
-        A4[GRACE/GRACE-FO TWSA] --> B
-        A5[Piezometer Well Network] --> B
+        A1["CHIRPS Precipitation"] --> B["GroundwaterDataLoader"]
+        A2["MODIS Evapotranspiration"] --> B
+        A3["GLDAS Soil/Snow/Canopy"] --> B
+        A4["GRACE/GRACE-FO TWSA"] --> B
+        A5["Piezometer Well Network"] --> B
     end
 
     subgraph Downscaling & Physics Engine
-        B --> C1[SpatialDownscaler<br/>Ensemble RF/XGBoost]
-        C1 --> C2[Scale Preservation<br/>Mass Conservation]
-        C2 --> C3[GWSA Isolation &<br/>GWLA Conversion]
-        B --> C4[VadoseDelayEngine<br/>Gamma Convolution Kernel]
+        B --> C1["SpatialDownscaler<br/>Ensemble RF/XGBoost"]
+        C1 --> C2["Scale Preservation<br/>Mass Conservation"]
+        C2 --> C3["GWSA Isolation &<br/>GWLA Conversion"]
+        B --> C4["VadoseDelayEngine<br/>Gamma Convolution Kernel"]
     end
 
     subgraph Scientific Machine Learning Surrogates
-        C3 --> D1[GNNLSTMSurrogate<br/>Spatiotemporal Graph Net]
+        C3 --> D1["GNNLSTMSurrogate<br/>Spatiotemporal Graph Net"]
         C4 --> D1
-        C3 --> D2[PINNSurrogate<br/>Dupuit-Boussinesq PDE Regularization]
-        C3 --> D3[FNOSurrogate<br/>2D Spectral Conv FFT]
+        C3 --> D2["PINNSurrogate<br/>Dupuit-Boussinesq PDE Regularization"]
+        C3 --> D3["FNOSurrogate<br/>2D Spectral Conv FFT"]
     end
 
     subgraph Risk Control & Optimization
-        D1 --> E1[SplitConformalPredictor<br/>Distribution-Free UQ]
-        E1 --> E2[SCPChanceConstrainedMPC<br/>Sequential Convex Programming]
+        D1 --> E1["SplitConformalPredictor<br/>Distribution-Free UQ"]
+        E1 --> E2["SCPChanceConstrainedMPC<br/>Sequential Convex Programming"]
     end
 
     subgraph Decision Support & API Layer
-        E2 --> F1[FastAPI REST Server]
-        F1 --> F2[Web Dashboard / GIS UI]
-        F1 --> F3[HTML Assessment Reports]
-        F1 --> F4[Automated Risk Alerts]
+        E2 --> F1["FastAPI REST Server"]
+        F1 --> F2["Web Dashboard / GIS UI"]
+        F1 --> F3["HTML Assessment Reports"]
+        F1 --> F4["Automated Risk Alerts"]
+    end
 ```
 
 ---
@@ -51,10 +52,10 @@ graph TD
 classDiagram
     class BaseDataProvider {
         <<abstract>>
-        +get_grid_metadata()* Dict
-        +fetch_hydroclimate_rasters(timesteps)* Dict
-        +fetch_piezometer_observations(num_wells, timesteps)* Dict
-        +fetch_static_geophysics()* Dict
+        +get_grid_metadata() Dict
+        +fetch_hydroclimate_rasters(timesteps) Dict
+        +fetch_piezometer_observations(num_wells, timesteps) Dict
+        +fetch_static_geophysics() Dict
     }
 
     class SyntheticDataProvider {
@@ -177,37 +178,37 @@ classDiagram
 ## 3. Data Flow Diagram (DFD - Level 1)
 
 ```
-[Satellite Data (GRACE, CHIRPS, MODIS)] ---> (1. Data Ingestion & Spline Interpolation)
-                                                       |
-                                                       v
-                                            [Normalized Rasters & Wells]
-                                                       |
-                                                       v
-                                            (2. Spatial Downscaling & Vadose Delay)
-                                                       |
-                                                       v
-                                            [GWLA Rasters & Effective Recharge R_eff]
-                                                       |
-                                                       v
-                                            (3. Dynamic Neural Surrogates: GNN/PINN/FNO)
-                                                       |
-                                                       v
-                                            [Forecast Hydraulic Heads G_{t+1}]
-                                                       |
-                                                       v
-                                            (4. Split Conformal UQ Calibration)
-                                                       |
-                                                       v
-                                            [Empirical Error Margin q_hat]
-                                                       |
-                                                       v
-                                            (5. SCP CCMPC Pumping Quota Optimizer)
-                                                       |
-                                                       v
-                                            [Optimal Pumping Quotas E_{1:H}*]
-                                                       |
-                                                       v
-                                            (6. FastAPI Dashboard & HTML Assessment Reports)
+[Satellite Data (GRACE, CHIRPS, MODIS)] ───► (1. Data Ingestion & Spline Interpolation)
+                                                            │
+                                                            ▼
+                                                [Normalized Rasters & Wells]
+                                                            │
+                                                            ▼
+                                                (2. Spatial Downscaling & Vadose Delay)
+                                                            │
+                                                            ▼
+                                                [GWLA Rasters & Effective Recharge R_eff]
+                                                            │
+                                                            ▼
+                                                (3. Dynamic Surrogates: GNN / PINN / FNO)
+                                                            │
+                                                            ▼
+                                                [Forecast Hydraulic Heads G_{t+1}]
+                                                            │
+                                                            ▼
+                                                (4. Split Conformal UQ Calibration)
+                                                            │
+                                                            ▼
+                                                [Empirical Error Margin q_hat]
+                                                            │
+                                                            ▼
+                                                (5. SCP CCMPC Pumping Optimizer)
+                                                            │
+                                                            ▼
+                                                [Optimal Pumping Quotas E_{1:H}*]
+                                                            │
+                                                            ▼
+                                                (6. FastAPI Dashboard & HTML Reports)
 ```
 
 ---

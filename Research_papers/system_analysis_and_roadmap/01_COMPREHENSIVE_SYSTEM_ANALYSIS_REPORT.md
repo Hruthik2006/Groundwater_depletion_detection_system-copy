@@ -23,11 +23,11 @@ The system is designed to solve three major challenges in groundwater management
 |---|---|---|:---:|---|
 | **Data Ingestion Engine** | Multi-source remote sensing (CHIRPS, MODIS, GLDAS, GRACE) + piezometers | `GroundwaterDataLoader`, `SyntheticDataProvider`, `RealtimeEarthEngineDataProvider` | 75% | Synthetic data engine complete; GEE realtime provider is a skeleton requiring live API auth & token setup. |
 | **Spatial Downscaling** | 4-Phase Downscaling: Ensemble regression, scale preservation, GWSA isolation, GWLA conversion | `SpatialDownscaler` (RandomForest / XGBoost) | 95% | Fully implemented according to equations (5)–(8). Scale preservation ratio and specific yield scaling included. |
-| **Vadose Zone Delay Physics** | Lagged Gamma distribution convolution kernel $\kappa(\tau; \theta_v)$ for effective recharge $R_{\text{eff}}(t)$ | `VadoseDelayEngine` | 95% | Equations (9)–(10) fully implemented via SciPy gamma distribution discrete convolution. |
-| **GNN-LSTM Surrogate** | Spatiotemporal message-passing neural network conditioned on static geophysics ($K, S_y, z_{\text{bedrock}}$) | `GNNLSTMSurrogate` + `GraphConvLayer` | 90% | Model architecture complete; requires pre-training loop on real historical well datasets. |
-| **PINN Surrogate** | 2D Dupuit-Boussinesq non-linear PDE loss regularization $R_{\text{PDE}}(h)$ | `PINNSurrogate` with PyTorch `autograd` | 85% | PDE residual function implemented; needs multi-epoch training script integrating PDE loss with data loss. |
+| **Vadose Zone Delay Physics** | Lagged Gamma distribution convolution kernel $\kappa(\tau; \theta_v)$ for effective recharge $R_{\mathrm{eff}}(t)$ | `VadoseDelayEngine` | 95% | Equations (9)–(10) fully implemented via SciPy gamma distribution discrete convolution. |
+| **GNN-LSTM Surrogate** | Spatiotemporal message-passing neural network conditioned on static geophysics ($K, S_y, z_{\mathrm{bedrock}}$) | `GNNLSTMSurrogate` + `GraphConvLayer` | 90% | Model architecture complete; requires pre-training loop on real historical well datasets. |
+| **PINN Surrogate** | 2D Dupuit-Boussinesq non-linear PDE loss regularization $R_{\mathrm{PDE}}(h)$ | `PINNSurrogate` with PyTorch `autograd` | 85% | PDE residual function implemented; needs multi-epoch training script integrating PDE loss with data loss. |
 | **FNO Surrogate** | 2D Spectral Convolution Layer (`SpectralConv2d`) using FFT mode truncation for discretization invariance | `FNOSurrogate` | 90% | Architecture implemented according to Equation (21); needs pre-training on 2D flow simulations. |
-| **Split Conformal UQ** | Non-parametric empirical quantile calibration $\hat{q}_{1-\alpha}$ tightening safety bounds $h_{\text{min}} + \hat{q}$ | `SplitConformalPredictor` | 85% | Mathematical quantile formula implemented; needs real calibration split $D_{\text{calib}}$ instead of mock noise. |
+| **Split Conformal UQ** | Non-parametric empirical quantile calibration $\hat{q}_{1-\alpha}$ tightening safety bounds $h_{\mathrm{min}} + \hat{q}_{1-\alpha}$ | `SplitConformalPredictor` | 85% | Mathematical quantile formula implemented; needs real calibration split $D_{\mathrm{calib}}$ instead of mock noise. |
 | **SCP CCMPC Controller** | Two-loop Sequential Convex Programming with trust-region subproblems solved via CVXPY (OSQP/ECOS) | `SCPChanceConstrainedMPC` | 90% | Linearization via autograd Jacobians ($A_k, B_k$), trust-region update, and QP formulation implemented. |
 | **Experimental Benchmarks** | Feature Ablation Matrix (Config A, B, C) and Spatial $K$-Fold Cross Validation | `FrameworkEvaluator` | 90% | Benchmark methods implemented and wired into execution pipeline. |
 | **Decision Support Dashboard & API** | Policy-maker dashboard, point location forecast, printable HTML report with LaTeX MathJax, alerts | FastAPI (`src/api/app.py`) + Web Dashboard (`web/`) | 95% | Fully interactive web dashboard, admin telemetry, 3D stratigraphic visualization, and HTML assessment reports built. |
@@ -37,7 +37,7 @@ The system is designed to solve three major challenges in groundwater management
 ## 3. What is Currently Built & Functioning
 
 1. **Complete Core Pipeline (`main.py`)**:
-   - Executes all 7 conceptual layers sequentially: Ingestion $\rightarrow$ Downscaling $\rightarrow$ Vadose Delay $\rightarrow$ Scientific ML Surrogates $\rightarrow$ Conformal UQ Calibration $\rightarrow$ SCP CCMPC Optimization $\rightarrow$ Experimental Benchmarking.
+   - Executes all 7 conceptual layers sequentially: Ingestion → Downscaling → Vadose Delay → Scientific ML Surrogates → Conformal UQ Calibration → SCP CCMPC Optimization → Experimental Benchmarking.
 2. **Multi-Phase Downscaling & Physics Engine (`src/downscaling/`)**:
    - Spatial downscaling preserves total mass conservation across native mascons.
    - Unsaturated vadose delay converts raw surface precipitation and evapotranspiration into physical vertical recharge fluxes.
@@ -46,7 +46,7 @@ The system is designed to solve three major challenges in groundwater management
    - PINN with automatic differentiation PDE residual evaluation.
    - FNO with 2D Fast Fourier Transforms.
 4. **Optimization & Control Layer (`src/control/`)**:
-   - Trust-region SCP solver enforcing $G_k \ge h_{\text{min}} + \hat{q}_{1-\alpha}$ and operational pumping limits $0 \le E_k \le E_{\text{max}}$.
+   - Trust-region SCP solver enforcing $G_k \ge h_{\mathrm{min}} + \hat{q}_{1-\alpha}$ and operational pumping limits $0 \le E_k \le E_{\mathrm{max}}$.
 5. **Full REST API & Web Dashboard (`src/api/app.py` & `web/`)**:
    - Includes real-time location query endpoints, 3D stratigraphic subsurface mesh generator, multi-region presets (Illinois, High Plains, Ganges, North German Basin), automated depletion risk alerts, and printable LaTeX reports.
 
@@ -56,7 +56,7 @@ The system is designed to solve three major challenges in groundwater management
 
 1. **Mock Noise Calibration in API (`src/api/app.py` Line 48 & Line 749)**:
    - *Issue*: `y_pred = y_true + np.random.normal(0, 0.2, y_true.shape)` is used to simulate predictions for conformal calibration.
-   - *Fix*: Replace with actual forward predictions generated by the trained surrogate network on a held-out calibration split $D_{\text{calib}}$.
+   - *Fix*: Replace with actual forward predictions generated by the trained surrogate network on a held-out calibration split $D_{\mathrm{calib}}$.
 2. **Hardcoded Fallback Linear Dynamics (`src/control/scp_mpc.py` Line 78 & Line 129)**:
    - *Issue*: Linear fallback equations ($0.95 \cdot G - 0.10 \cdot E + 0.05 \cdot c$) exist when surrogate model autograd is detached.
    - *Fix*: Ensure PyTorch tensors always maintain computational graphs through the surrogate forward pass during SCP Jacobian evaluations.
