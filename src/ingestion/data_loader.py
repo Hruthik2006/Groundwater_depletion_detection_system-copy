@@ -58,6 +58,35 @@ class GroundwaterDataLoader:
         self._init_provider()
         logger.info(f"Data loader location set to region: {region_key}, bounds: {bounds}")
 
+    def detect_region_key(self, lat: float, lon: float) -> Tuple[str, Optional[list]]:
+        """
+        Determines matching hydrogeological region preset or custom bounds based on (lat, lon) coordinates.
+        """
+        lat_f = float(lat)
+        lon_f = float(lon)
+
+        # Ganges / Indo-Gangetic Basin (India)
+        if 65.0 <= lon_f <= 95.0 and 8.0 <= lat_f <= 36.0:
+            return "ganges", None
+        # High Plains / Ogallala Aquifer (USA)
+        elif -106.0 <= lon_f <= -94.0 and 31.0 <= lat_f <= 44.0:
+            return "high_plains", None
+        # North German Basin (Europe)
+        elif 5.0 <= lon_f <= 16.0 and 47.0 <= lat_f <= 58.0:
+            return "north_german", None
+        # Illinois Glacial Aquifer System (USA)
+        elif -92.5 <= lon_f <= -85.0 and 36.5 <= lat_f <= 43.0:
+            return "illinois", None
+        else:
+            # Custom bounding box centered on (lat, lon)
+            custom_bounds = [
+                float(np.clip(lon_f - 1.5, -180.0, 180.0)),
+                float(np.clip(lat_f - 1.0, -90.0, 90.0)),
+                float(np.clip(lon_f + 1.5, -180.0, 180.0)),
+                float(np.clip(lat_f + 1.0, -90.0, 90.0)),
+            ]
+            return "custom", custom_bounds
+
     def load_processed_dataset(
         self,
         timesteps: int = 36,

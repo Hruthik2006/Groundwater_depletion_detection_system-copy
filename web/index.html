@@ -144,13 +144,15 @@
         <div class="header-nav-right" style="margin-right: 150px; display: flex; align-items: center; gap: 1rem;">
           <span id="geeStatusBadge" class="gee-status-badge" style="padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; background: rgba(16, 185, 129, 0.15); color: #10B981; border: 1px solid rgba(16, 185, 129, 0.3);" title="Google Earth Engine Connection Status">GEE READY</span>
           
+          <!--
           <div class="status-indicator-pill" style="display: flex; align-items: center; gap: 4px; padding: 3px 8px; background: rgba(255,255,255,0.05); border-radius: 10px;">
             <span id="dotRed" class="status-dot dot-red"></span>
             <span id="dotGreen" class="status-dot dot-green dot-active"></span>
           </div>
+          -->
 
           <button id="btnGenerateReport" class="header-nav-report-btn" style="display: none;"
-            onclick="openLocationReport()">📄 Generate Report</button>
+            onclick="openLocationReport()">Generate Report</button>
 
           <a href="#" onclick="openInputScreen(event)" class="header-nav-link">New</a>
           <a href="/admin" target="_blank" class="header-nav-link">Admin</a>
@@ -655,6 +657,7 @@
           </div>
         </div>
 
+         <!--
         <div class="guide-step-card" style="border-left: 3px solid #10b981; background: rgba(16, 185, 129, 0.08);">
           <div class="guide-step-num" style="background: #10b981; color: #ffffff;">🔴🟢</div>
           <div class="guide-step-content">
@@ -663,6 +666,8 @@
                 Red Light:</strong> Data fetching, downscaling, or SCP optimization active in background.</p>
           </div>
         </div>
+        -->
+      
       </div>
 
       <div class="guide-modal-footer">

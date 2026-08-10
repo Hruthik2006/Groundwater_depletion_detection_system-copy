@@ -500,22 +500,21 @@ function initGisMap() {
   locationMarker.bindPopup("<b>📍 Pinned Query Location</b><br>Lat: 40.15°, Lon: -88.25°").openPopup();
 
   // Handle marker drag end
-  locationMarker.on("dragend", function () {
+  locationMarker.on("dragend", async function () {
     const latlng = locationMarker.getLatLng();
     document.getElementById("inputLat").value = latlng.lat.toFixed(4);
     document.getElementById("inputLon").value = latlng.lng.toFixed(4);
-    predictPointLocation();
+    await fetchUnifiedControl();
   });
 
   // Handle map click to pin location
-  gisMap.on("click", function (e) {
+  gisMap.on("click", async function (e) {
     const lat = e.latlng.lat.toFixed(4);
     const lon = e.latlng.lng.toFixed(4);
     document.getElementById("inputLat").value = lat;
     document.getElementById("inputLon").value = lon;
 
-    updateMapMarker(lat, lon, "📍 Custom Clicked Coordinate Pin");
-    predictPointLocation();
+    await fetchUnifiedControl();
   });
 }
 
@@ -1220,7 +1219,15 @@ async function predictPointLocation() {
         <b>Head (Mo 12):</b> ${headLast}m (95% Bound: ${safeLast}m)<br>
         <b>Status:</b> ${data.depletion_risk}
       `;
-      updateMapMarker(lat, lon, popupHtml);
+      // Sync region preset selector and label if auto-switched
+      if (data.region_key) {
+        const regionSelect = document.getElementById("regionPresetSelect");
+        if (regionSelect) regionSelect.value = data.region_key;
+        const regionLabelSpan = document.getElementById("regionPickerSelectedLabel");
+        if (regionLabelSpan && data.region_name) {
+          regionLabelSpan.innerText = data.region_name;
+        }
+      }
 
       document.getElementById("timestepDisplay").innerText = `Lat: ${data.query_coordinates.lat}°, Lon: ${data.query_coordinates.lon}° (R:${data.grid_cell.row}, C:${data.grid_cell.col})`;
     }

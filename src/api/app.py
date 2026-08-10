@@ -181,11 +181,36 @@ def set_location_config(req: LocationConfigRequest):
     }
 
 
+def _ensure_region_for_coords(lat: float, lon: float):
+    target_region, custom_bounds = state.data_loader.detect_region_key(lat, lon)
+    current_meta = state.dataset["metadata"]
+    current_region = current_meta.get("region_key")
+
+    if target_region != current_region:
+        import logging
+        logging.getLogger(__name__).info(f"Auto-switching region from '{current_region}' to '{target_region}' for pinned coordinates ({lat}, {lon})")
+        state.data_loader.set_region(region_key=target_region, bounds=custom_bounds)
+        state.dataset = state.data_loader.load_processed_dataset(timesteps=36, num_wells=16)
+        state.downscaling_res = state.downscaler.fit_and_downscale(
+            state.dataset["rasters_raw"],
+            state.dataset["geophysics"],
+            mascon_grid_shape=state.dataset["metadata"]["mascon_grid_shape"],
+        )
+        state.Reff = state.vadose_engine.compute_effective_recharge(
+            state.dataset["rasters_raw"]["P"],
+            state.dataset["rasters_raw"]["ET"],
+            state.dataset["rasters_raw"]["Qs"],
+        )
+        state.calibrate_conformal_from_surrogate()
+        state.log_event("AUTO_REGION_SWITCH", f"Auto-switched region to '{target_region}' for pinned coordinates ({lat}, {lon}).")
+
+
 @app.post("/api/v1/forecast/location_predict")
 def predict_location_groundwater(req: LocationPredictRequest):
     """
     Predicts localized groundwater level time series G(lat, lon, t) and projects 2D grid rasters.
     """
+    _ensure_region_for_coords(req.lat, req.lon)
     row, col = state.data_loader.lat_lon_to_grid_index(req.lat, req.lon)
     GWLA = state.downscaling_res["GWLA"]  # (T, H, W)
     Reff = state.Reff                    # (T, H, W)
@@ -221,6 +246,7 @@ def predict_location_groundwater(req: LocationPredictRequest):
     return {
         "query_coordinates": {"lat": req.lat, "lon": req.lon},
         "grid_cell": {"row": row, "col": col},
+        "region_key": state.dataset["metadata"].get("region_key", "custom"),
         "region_name": state.dataset["metadata"].get("region_name", "Aquifer Region"),
         "geophysics": {"Sy": float(Sy), "K_m_per_day": float(K)},
         "conformal_q_hat": q_hat,
@@ -243,6 +269,7 @@ def view_location_report(lat: float = 40.15, lon: float = -88.25, horizon: int =
     Renders a comprehensive, printable HTML Location Groundwater Assessment Report with MathJax LaTeX rendering.
     """
     from fastapi.responses import HTMLResponse
+    _ensure_region_for_coords(lat, lon)
     row, col = state.data_loader.lat_lon_to_grid_index(lat, lon)
     GWLA = state.downscaling_res["GWLA"]
     Reff = state.Reff
