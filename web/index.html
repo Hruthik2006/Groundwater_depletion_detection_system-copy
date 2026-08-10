@@ -141,7 +141,8 @@
       <header class="top-header" style="border-radius: 20px;">
         <div class="header-brand" onclick="openLandingScreen()" style="cursor: pointer; margin-left: 150px;"
           title="Click to view Landing Cover Screen">Satellite Enhanced Groundwater Prediction system</div>
-        <div class="header-nav-right" style="margin-right: 150px;">
+        <div class="header-nav-right" style="margin-right: 150px; display: flex; align-items: center; gap: 1rem;">
+          <span id="geeStatusBadge" class="gee-status-badge" style="padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; background: rgba(16, 185, 129, 0.15); color: #10B981; border: 1px solid rgba(16, 185, 129, 0.3);" title="Google Earth Engine Connection Status">GEE READY</span>
           <a href="#" onclick="openInputScreen(event)" class="header-nav-link">New</a>
           <a href="/admin" target="_blank" class="header-nav-link">Admin</a>
           <a href="/help" target="_blank" class="header-nav-link">Help</a>

@@ -89,7 +89,11 @@ class GroundwaterDataLoader:
                 mean_val = np.nanmean(series) if np.any(valid_mask) else 45.0
                 G_filled[i] = np.where(valid_mask, series, mean_val)
 
-        # 2. Z-Score Normalization per spatial grid cell across historical timeline
+        # 2. Inverse Distance Weighting (IDW) spatial piezometer interpolation over 2D grid
+        H, W = self.grid_shape
+        G_spatial_idw = self.interpolate_spatial_idw(wells["coords"], G_filled, (H, W))
+
+        # 3. Z-Score Normalization per spatial grid cell across historical timeline
         normalized_rasters = {}
         raster_stats = {}
 
@@ -114,10 +118,40 @@ class GroundwaterDataLoader:
                 "coords": wells["coords"],
                 "G_raw": G_raw,
                 "G_filled": G_filled,
+                "G_spatial_idw": G_spatial_idw,
                 "missing_mask": wells["missing_mask"],
             },
             "geophysics": static_geo,
         }
+
+    def interpolate_spatial_idw(self, coords: np.ndarray, G_filled: np.ndarray, grid_shape: Tuple[int, int], power: float = 2.0) -> np.ndarray:
+        """
+        Executes Inverse Distance Weighting (IDW) spatial interpolation from point piezometers to 2D grid rasters.
+        coords: (num_wells, 2) row/col positions
+        G_filled: (num_wells, T)
+        returns: G_spatial (T, H, W)
+        """
+        H, W = grid_shape
+        num_wells, T = G_filled.shape
+        G_spatial = np.zeros((T, H, W))
+
+        rows, cols = np.indices((H, W))
+        grid_pts = np.stack([rows.ravel(), cols.ravel()], axis=1)  # (H*W, 2)
+
+        for t in range(T):
+            obs_vals = G_filled[:, t]  # (num_wells,)
+            # Distance matrix (H*W, num_wells)
+            diff = grid_pts[:, None, :] - coords[None, :, :]
+            dist = np.sqrt(np.sum(diff**2, axis=-1))
+            dist = np.maximum(dist, 1e-6)
+
+            weights = 1.0 / (dist ** power)
+            weights_sum = np.sum(weights, axis=1, keepdims=True)
+            idw_flat = np.sum(weights * obs_vals[None, :], axis=1) / weights_sum.squeeze(-1)
+
+            G_spatial[t] = idw_flat.reshape(H, W)
+
+        return G_spatial
 
     def lat_lon_to_grid_index(self, lat: float, lon: float) -> Tuple[int, int]:
         """

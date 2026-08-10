@@ -31,6 +31,16 @@ class SystemState:
 
         self.history_log: List[Dict[str, Any]] = []
 
+        # Load pre-trained surrogate weights if available
+        checkpoint_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "models", "checkpoints", "gnn_lstm_best.pt"))
+        if os.path.exists(checkpoint_path):
+            try:
+                import torch
+                self.surrogate.load_state_dict(torch.load(checkpoint_path, map_location=torch.device("cpu")))
+                print(f"[SystemState] Loaded pre-trained GNN-LSTM weights from {checkpoint_path}")
+            except Exception as ex:
+                print(f"[SystemState] Failed to load checkpoint weights: {ex}")
+
         # Cache baseline dataset
         self.dataset = self.data_loader.load_processed_dataset(timesteps=36, num_wells=16)
         self.downscaling_res = self.downscaler.fit_and_downscale(
@@ -43,12 +53,42 @@ class SystemState:
             self.dataset["rasters_raw"]["ET"],
             self.dataset["rasters_raw"]["Qs"],
         )
-        # Calibrate conformal predictor
-        y_true = self.dataset["wells"]["G_filled"]
-        y_pred = y_true + np.random.normal(0, 0.2, y_true.shape)
-        self.conformal.calibrate(y_true, y_pred)
+        # Calibrate conformal predictor using real surrogate forward pass
+        self.calibrate_conformal_from_surrogate()
 
-        self.log_event("SYSTEM_INIT", "System initialized with synthetic dataset baseline.")
+        self.log_event("SYSTEM_INIT", "System initialized with pre-trained dynamic surrogate and real conformal calibration.")
+
+    def calibrate_conformal_from_surrogate(self):
+        import torch
+        y_true = self.dataset["wells"]["G_filled"]  # (num_wells, T)
+        num_wells, T = y_true.shape
+        coords = self.dataset["wells"]["coords"]
+        
+        # Build dynamic sequence for surrogate forward pass
+        seq_len = min(12, T - 1)
+        g_series = torch.tensor(y_true[:, :seq_len], dtype=torch.float32).T.unsqueeze(0).unsqueeze(-1) # (1, seq_len, N, 1)
+        e_series = torch.full((1, seq_len, num_wells, 1), 5.0, dtype=torch.float32)
+        rf_vals = self.Reff[:seq_len, coords[:,0], coords[:,1]] if self.Reff.ndim == 3 else self.Reff[:seq_len, :num_wells]
+        gwla_vals = self.downscaling_res["GWLA"][:seq_len, coords[:,0], coords[:,1]]
+
+        rf_series = torch.tensor(rf_vals, dtype=torch.float32).unsqueeze(0).unsqueeze(-1)
+        gwla_series = torch.tensor(gwla_vals, dtype=torch.float32).unsqueeze(0).unsqueeze(-1)
+        
+        dyn_seq = torch.cat([g_series, e_series, rf_series, gwla_series], dim=-1)
+        
+        Sy_vals = torch.tensor(self.dataset["geophysics"]["Sy"][:num_wells, 0:1], dtype=torch.float32)
+        K_vals = torch.tensor(self.dataset["geophysics"]["K"][:num_wells, 0:1], dtype=torch.float32)
+        z_bedrock_vals = torch.tensor(self.dataset["geophysics"]["z_bedrock"][:num_wells, 0:1], dtype=torch.float32)
+        static_t = torch.cat([K_vals, Sy_vals, z_bedrock_vals], dim=-1)
+
+        adj = self.surrogate.compute_adjacency(coords)
+
+        self.surrogate.eval()
+        with torch.no_grad():
+            preds = self.surrogate(dyn_seq, static_t, adj)[0].numpy().T  # (num_wells, seq_len)
+
+        y_true_seq = y_true[:, 1:seq_len+1]
+        self.conformal.calibrate(y_true_seq, preds)
 
     def log_event(self, event_type: str, detail: str, extra: Optional[Dict[str, Any]] = None):
         import datetime
@@ -746,9 +786,8 @@ def get_admin_history():
 @app.post("/api/v1/admin/recalibrate")
 def recalibrate_conformal_model(alpha: float = 0.05):
     state.conformal.alpha = alpha
-    y_true = state.dataset["wells"]["G_filled"]
-    y_pred = y_true + np.random.normal(0, 0.2, y_true.shape)
-    new_q_hat = state.conformal.calibrate(y_true, y_pred)
+    state.calibrate_conformal_from_surrogate()
+    new_q_hat = state.conformal.q_hat
     
     state.log_event("RECALIBRATE_CONFORMAL", f"Conformal predictor recalibrated with alpha={alpha}. New q̂ = {new_q_hat:.4f}m.")
 

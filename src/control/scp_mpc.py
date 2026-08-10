@@ -70,11 +70,18 @@ class SCPChanceConstrainedMPC:
         dyn_seq = torch.cat([G_t.unsqueeze(-1), E_t.unsqueeze(-1), climate_t], dim=-1)  # (1, 1, N, 4)
 
         if hasattr(surrogate_model, "compute_adjacency") and adj is not None:
-            # GNN-LSTM model
             static_t = torch.tensor(static_geo, dtype=torch.float32)
             G_next = surrogate_model(dyn_seq, static_t, adj)[0, 0]  # (N,)
+        elif hasattr(surrogate_model, "forward"):
+            # Generic neural surrogate pass
+            try:
+                static_t = torch.tensor(static_geo, dtype=torch.float32)
+                G_next = surrogate_model(dyn_seq, static_t, adj)[0, 0] if adj is not None else surrogate_model(dyn_seq)[0, 0]
+            except Exception as ex:
+                logger.warning(f"Surrogate forward pass in Jacobian evaluation fallback triggered ({ex}). Using baseline state transition.")
+                G_next = G_t[0, 0, :] - 0.1 * E_t[0, 0, :] + 0.05 * climate_t[0, 0, :, 0]
         else:
-            # Fallback simple linear expansion
+            logger.warning("No neural surrogate model attached to SCP MPC controller; using baseline state transition.")
             G_next = G_t[0, 0, :] - 0.1 * E_t[0, 0, :] + 0.05 * climate_t[0, 0, :, 0]
 
         N = self.N
@@ -97,6 +104,7 @@ class SCPChanceConstrainedMPC:
                 else:
                     B_k[i, i] = -0.15
             else:
+                logger.debug(f"Gradient not attached for well index {i}; using default diagonal Jacobian.")
                 A_k[i, i] = 0.95
                 B_k[i, i] = -0.15
 

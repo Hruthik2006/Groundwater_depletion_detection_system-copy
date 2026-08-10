@@ -32,6 +32,10 @@ venv.bak/
 .coverage
 htmlcov/
 
+# Model Checkpoints
+*.pt
+models/checkpoints/
+
 # IDE & OS
 .vscode/
 .idea/
