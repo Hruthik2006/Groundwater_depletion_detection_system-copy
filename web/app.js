@@ -1,6 +1,18 @@
 let chartInstance = null;
 let gisMap = null;
 let locationMarker = null;
+let globeScene = null;
+let globeCamera = null;
+let globeRenderer = null;
+let globeMesh = null;
+let globeMarker = null;
+let globeControls = null;
+let targetGlobeRotY = 0;
+let targetGlobeRotX = 0.18;
+let isGlobeLocationSelected = false;
+let regionOutlineGroup = null;
+let globeOuterPulseRing = null;
+let globePulseTime = 0;
 
 function switchMainPanel(selectedId) {
   const panels = ["panelFramework", "panelMaps", "panelPredictions"];
@@ -41,6 +53,192 @@ function resize3DMap() {
     camera3D.updateProjectionMatrix();
     renderer3D.setSize(w, h);
     renderer3D.render(scene3D, camera3D);
+  }
+}
+
+function initInputGlobe() {
+  const container = document.getElementById("inputGlobe");
+  if (!container || typeof THREE === "undefined") return;
+
+  globeScene = new THREE.Scene();
+  globeCamera = new THREE.PerspectiveCamera(40, container.clientWidth / container.clientHeight, 0.1, 1000);
+  globeCamera.position.set(0, 0, 6.2);
+  globeCamera.lookAt(0, 0, 0);
+
+  globeRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  globeRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  globeRenderer.setSize(container.clientWidth, container.clientHeight);
+  globeRenderer.domElement.style.display = "block";
+  globeRenderer.domElement.style.touchAction = "none";
+  globeRenderer.domElement.style.userSelect = "none";
+  container.appendChild(globeRenderer.domElement);
+
+  const ambient = new THREE.AmbientLight(0xffffff, 0.95);
+  globeScene.add(ambient);
+  const directional = new THREE.DirectionalLight(0xffffff, 0.7);
+  directional.position.set(5, 5, 5);
+  globeScene.add(directional);
+
+  const globeGeometry = new THREE.SphereGeometry(2.05, 64, 64);
+  const globeMaterial = new THREE.MeshStandardMaterial({
+    color: 0x17283f,
+    roughness: 0.8,
+    metalness: 0.15,
+    emissive: 0x051523,
+    side: THREE.FrontSide,
+  });
+
+  globeMesh = new THREE.Mesh(globeGeometry, globeMaterial);
+  globeScene.add(globeMesh);
+
+  const lineMaterial = new THREE.LineBasicMaterial({ color: 0x72a9ff, opacity: 0.18, transparent: true });
+  const lineMesh = new THREE.LineSegments(new THREE.WireframeGeometry(globeGeometry), lineMaterial);
+  globeMesh.add(lineMesh);
+
+  const atmosphereGeo = new THREE.SphereGeometry(2.09, 64, 64);
+  const atmosphereMat = new THREE.MeshBasicMaterial({ color: 0x5ea1ff, transparent: true, opacity: 0.08, side: THREE.BackSide });
+  const atmosphere = new THREE.Mesh(atmosphereGeo, atmosphereMat);
+  globeScene.add(atmosphere);
+
+  // Hydrogeological Region Outline Group (attached to globeMesh so it stays anchored on sphere surface)
+  regionOutlineGroup = new THREE.Group();
+  globeMesh.add(regionOutlineGroup);
+
+  // 1. Semi-transparent surface fill overlay representing hydrogeological aquifer extent
+  const fillGeo = new THREE.CircleGeometry(0.38, 64);
+  const fillMat = new THREE.MeshBasicMaterial({
+    color: 0x00f2fe,
+    transparent: true,
+    opacity: 0.22,
+    side: THREE.DoubleSide
+  });
+  const fillMesh = new THREE.Mesh(fillGeo, fillMat);
+  regionOutlineGroup.add(fillMesh);
+
+  // 2. Primary region outline boundary ring
+  const ringGeo = new THREE.RingGeometry(0.36, 0.40, 64);
+  const ringMat = new THREE.MeshBasicMaterial({
+    color: 0x00f2fe,
+    transparent: true,
+    opacity: 0.9,
+    side: THREE.DoubleSide
+  });
+  const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+  regionOutlineGroup.add(ringMesh);
+
+  // 3. Outer animated pulse ring for region boundary accent
+  const pulseGeo = new THREE.RingGeometry(0.44, 0.47, 64);
+  const pulseMat = new THREE.MeshBasicMaterial({
+    color: 0xffbf47,
+    transparent: true,
+    opacity: 0.7,
+    side: THREE.DoubleSide
+  });
+  globeOuterPulseRing = new THREE.Mesh(pulseGeo, pulseMat);
+  regionOutlineGroup.add(globeOuterPulseRing);
+
+  // 4. Center marker pin dot
+  const pinGeo = new THREE.SphereGeometry(0.06, 16, 16);
+  const pinMat = new THREE.MeshStandardMaterial({
+    color: 0xffbf47,
+    emissive: 0xffbf47,
+    emissiveIntensity: 1.0
+  });
+  const pinMesh = new THREE.Mesh(pinGeo, pinMat);
+  pinMesh.position.set(0, 0, 0.02);
+  regionOutlineGroup.add(pinMesh);
+
+  globeMarker = regionOutlineGroup;
+
+  updateInputGlobe();
+  animateInputGlobe();
+  window.addEventListener("resize", resizeInputGlobe);
+}
+
+function resizeInputGlobe() {
+  if (!globeRenderer || !globeCamera) return;
+  const container = document.getElementById("inputGlobe");
+  if (!container) return;
+  const width = container.clientWidth || 480;
+  const height = container.clientHeight || 320;
+  globeCamera.aspect = width / height;
+  globeCamera.updateProjectionMatrix();
+  globeRenderer.setSize(width, height);
+}
+
+function animateInputGlobe() {
+  requestAnimationFrame(animateInputGlobe);
+
+  if (globeMesh) {
+    if (!isGlobeLocationSelected) {
+      // Rotate slowly in idle state before user chooses an input
+      globeMesh.rotation.y += 0.0012;
+      globeMesh.rotation.x = 0.18;
+    } else {
+      // Smoothly rotate to target location, then stop at that location
+      const lerpFactor = 0.08;
+      let dy = (targetGlobeRotY - globeMesh.rotation.y + Math.PI) % (Math.PI * 2);
+      if (dy < 0) dy += Math.PI * 2;
+      dy -= Math.PI;
+
+      globeMesh.rotation.y += dy * lerpFactor;
+      globeMesh.rotation.x += (targetGlobeRotX - globeMesh.rotation.x) * lerpFactor;
+    }
+  }
+
+  if (globeOuterPulseRing) {
+    globePulseTime += 0.04;
+    const scaleVal = 1.0 + Math.sin(globePulseTime) * 0.06;
+    globeOuterPulseRing.scale.set(scaleVal, scaleVal, 1);
+  }
+
+  if (globeRenderer && globeScene && globeCamera) {
+    globeRenderer.render(globeScene, globeCamera);
+  }
+}
+
+function updateInputGlobe(lat, lon, regionKey, isUserChoice = false) {
+  if (!globeMesh || !regionOutlineGroup) return;
+
+  const regionInfo = inputScreenRegionDefaults[regionKey || selectedInputPageRegion] || inputScreenRegionDefaults[selectedInputPageRegion];
+  const latVal = typeof lat === "number" ? lat : (lat ? parseFloat(lat) : regionInfo.lat);
+  const lonVal = typeof lon === "number" ? lon : (lon ? parseFloat(lon) : regionInfo.lon);
+
+  if (isUserChoice) {
+    isGlobeLocationSelected = true;
+  }
+
+  const radius = 2.05;
+  const latRad = latVal * (Math.PI / 180);
+  const lonRad = lonVal * (Math.PI / 180);
+
+  // Position region outline on sphere surface at (latVal, lonVal)
+  const normal = new THREE.Vector3(
+    Math.cos(latRad) * Math.sin(lonRad),
+    Math.sin(latRad),
+    Math.cos(latRad) * Math.cos(lonRad)
+  ).normalize();
+
+  regionOutlineGroup.position.copy(normal.clone().multiplyScalar(radius * 1.008));
+  regionOutlineGroup.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
+  regionOutlineGroup.visible = isGlobeLocationSelected;
+
+  // Set target globe rotation to focus on the selected region
+  targetGlobeRotY = -lonRad;
+  targetGlobeRotX = latRad * 0.4;
+}
+
+function updateInputGlobeFromInputs() {
+  const latInput = document.getElementById("inputScreenLat");
+  const lonInput = document.getElementById("inputScreenLon");
+  if (!latInput || !lonInput) return;
+
+  const latValue = latInput.value.trim();
+  const lonValue = lonInput.value.trim();
+  if (latValue !== "" && lonValue !== "" && !isNaN(parseFloat(latValue)) && !isNaN(parseFloat(lonValue))) {
+    updateInputGlobe(parseFloat(latValue), parseFloat(lonValue), selectedInputPageRegion, true);
+  } else {
+    updateInputGlobe(undefined, undefined, selectedInputPageRegion, false);
   }
 }
 
@@ -115,6 +313,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initHeatmapGrid();
   initConformalChart();
   initGisMap();
+  initInputGlobe();
   init3DMap();
   fetchSystemStatus();
   fetchDrawdownForecast();
@@ -128,6 +327,15 @@ document.addEventListener("DOMContentLoaded", () => {
         applyCustomMonthInput();
       }
     });
+  }
+
+  const latInput = document.getElementById("inputScreenLat");
+  const lonInput = document.getElementById("inputScreenLon");
+  if (latInput) {
+    latInput.addEventListener("input", () => updateInputGlobeFromInputs());
+  }
+  if (lonInput) {
+    lonInput.addEventListener("input", () => updateInputGlobeFromInputs());
   }
 });
 
@@ -772,6 +980,13 @@ function openDepletionInfoModal() {
   );
 }
 
+const inputScreenRegionDefaults = {
+  high_plains: { lat: 37.50, lon: -100.00, label: 'High Plains / Ogallala (USA)' },
+  ganges: { lat: 26.50, lon: 79.50, label: 'Indo-Gangetic Basin (India)' },
+  north_german: { lat: 53.00, lon: 11.00, label: 'North German Basin (Europe)' },
+  illinois: { lat: 40.15, lon: -88.25, label: 'Illinois Glacial Aquifer System (USA)' },
+};
+
 let selectedInputPageRegion = "high_plains";
 let selectedInputPageSource = "synthetic";
 
@@ -804,6 +1019,7 @@ function openInputScreen(e) {
     inputScreen.style.display = "flex";
     inputScreen.classList.remove("hidden");
   }
+  updateInputGlobeFromInputs();
 }
 
 function openLandingScreen() {
@@ -818,6 +1034,7 @@ function openLandingScreen() {
 
 function selectInputPageRegion(key, labelText) {
   selectedInputPageRegion = key;
+  isGlobeLocationSelected = true;
   const labelEl = document.getElementById("inputPageRegionLabel");
   if (labelEl) labelEl.innerText = labelText;
 
@@ -831,8 +1048,9 @@ function selectInputPageRegion(key, labelText) {
   if (regionDefaults[key]) {
     const latInput = document.getElementById("inputScreenLat");
     const lonInput = document.getElementById("inputScreenLon");
-    if (latInput && !latInput.value) latInput.value = regionDefaults[key].lat.toFixed(2);
-    if (lonInput && !lonInput.value) lonInput.value = regionDefaults[key].lon.toFixed(2);
+    if (latInput) latInput.value = regionDefaults[key].lat.toFixed(2);
+    if (lonInput) lonInput.value = regionDefaults[key].lon.toFixed(2);
+    updateInputGlobe(regionDefaults[key].lat, regionDefaults[key].lon, key, true);
   }
   closeAllChoicePickers();
 }
@@ -952,6 +1170,7 @@ async function validateAndSubmitDetails(e) {
     gisMap.invalidateSize();
     gisMap.setView([latNum, lonNum], 8);
   }
+  updateInputGlobe(latNum, lonNum, selectedInputPageRegion);
 
   // 3. Save session state & transition to Dashboard
   sessionStorage.setItem("hasProceeded", "true");

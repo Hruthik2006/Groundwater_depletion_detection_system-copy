@@ -33,16 +33,18 @@
       </div>
     </div>
     <div class="landing-content-bottom">
-      <a href="#" class="landing-proceed-btn" onclick="openInputScreen(event)">Proceed &gt;</a>
+      <a href="#" class="landing-proceed-btn" onclick="openInputScreen(event)">Get Started &gt;</a>
     </div>
   </div>
 
   <!-- INPUT DETAILS PAGE OVERLAY -->
   <div id="inputScreen" class="landing-page-overlay hidden">
-    <div class="landing-content-top" style="gap: 2.2rem;">
+    <div class="landing-content-top">
       <h2 class="fullscreen-footer-subtitle" style="margin-left: 7px; margin-bottom: 50px;">Enter the details</h2>
+    </div>
 
-      <div class="input-screen-form" style="display: flex; flex-direction: column; gap: 1.4rem; max-width: 420px;">
+    <div class="input-screen-body">
+      <div class="input-screen-form" style="display: flex; flex-direction: column; gap: 1.4rem; max-width: 420px; width: 100%;">
         <!-- Hydrogeological region choice picker -->
         <div class="choice-picker-container" id="inputPageRegionPickerContainer">
           <button class="choice-picker-trigger" id="inputPageRegionBtn" style="font-size: 1.05rem;"
@@ -81,18 +83,16 @@
           </div>
         </div>
 
-        <!-- Latitude input with ^ indicator -->
+        <!-- Latitude input -->
         <div style="display: flex; align-items: center; gap: 0.5rem;">
           <input type="number" id="inputScreenLat" step="0.01" placeholder="Latitude ^"
-            style="font-size: 1.45rem; width: 220px; color: #E0E0E0; background: transparent; border: none; border-bottom: 1.5px solid transparent; padding: 0.2rem 0.4rem; outline: none; transition: border-color 0.2s;"
-            onfocus="this.style.borderColor='#E0E0E0'" onblur="if(!this.value) this.style.borderColor='transparent'">
+            style="font-size: 1.45rem; width: 220px; color: #E0E0E0; background: transparent; border: none !important; padding: 0.2rem 0.4rem; outline: none;">
         </div>
 
-        <!-- Longitude input with ^ indicator -->
+        <!-- Longitude input -->
         <div style="display: flex; align-items: center; gap: 0.5rem;">
           <input type="number" id="inputScreenLon" step="0.01" placeholder="Longitude ^"
-            style="font-size: 1.45rem; width: 220px; color: #E0E0E0; background: transparent; border: none; border-bottom: 1.5px solid transparent; padding: 0.2rem 0.4rem; outline: none; transition: border-color 0.2s;"
-            onfocus="this.style.borderColor='#E0E0E0'" onblur="if(!this.value) this.style.borderColor='transparent'">
+            style="font-size: 1.45rem; width: 220px; color: #E0E0E0; background: transparent; border: none !important; padding: 0.2rem 0.4rem; outline: none;">
         </div>
 
         <!-- Data Source choice picker -->
@@ -127,6 +127,10 @@
         <div id="inputScreenError"
           style="color: #c44747; font-size: 1.05rem; font-weight: 100; display: none; margin-top: 1rem;">
         </div>
+      </div>
+
+      <div class="input-screen-map-panel">
+        <div id="inputGlobe" class="input-globe-view"></div>
       </div>
     </div>
 
