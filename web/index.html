@@ -144,10 +144,10 @@
     <!-- SCREEN 1: Main Project Dashboard (100vh) -->
     <section class="screen-section screen-project">
       <!-- Top Header Bar -->
-      <header class="top-header" style="border-radius: 20px;">
-        <div class="header-brand" onclick="openLandingScreen()" style="cursor: pointer; margin-left: 150px;"
+      <header class="top-header">
+        <div class="header-brand" onclick="openLandingScreen()" style="cursor: pointer;"
           title="Click to view Landing Cover Screen">Satellite Enhanced Groundwater Prediction system</div>
-        <div class="header-nav-right" style="margin-right: 150px; display: flex; align-items: center; gap: 1rem;">
+        <div class="header-nav-right" style="display: flex; align-items: center; gap: 1rem;">
           <!-- Interactive Data Source Switcher in Top Header Bar -->
           <div class="choice-picker-container" style="position: relative;">
             <button id="geeStatusBadge" class="gee-status-badge choice-picker-trigger" style="padding: 4px 12px; border-radius: 14px; font-size: 0.75rem; font-weight: 600; background: rgba(16, 185, 129, 0.15); color: #10B981; border: 1px solid rgba(16, 185, 129, 0.3); cursor: pointer; display: flex; align-items: center; gap: 5px;" onclick="toggleChoicePicker('headerSourceMenu', 'geeStatusBadge')" title="Click to switch Data Source Mode (Synthetic / Realtime GEE)">
@@ -175,9 +175,6 @@
             <span id="dotGreen" class="status-dot dot-green dot-active"></span>
           </div>
           -->
-
-          <button id="btnGenerateReport" class="header-nav-report-btn" style="display: none;"
-            onclick="openLocationReport()">Generate Report</button>
 
           <a href="#" onclick="openInputScreen(event)" class="header-nav-link">New</a>
           <a href="/admin" target="_blank" class="header-nav-link">Admin</a>
@@ -209,11 +206,23 @@
         <section id="panelFramework" class="accordion-panel panel-collapsed">
           <div class="vertical-tab-strip" onclick="switchMainPanel('panelFramework')">
             <span class="tab-label">Parameters and Layer Framework status&nbsp;&nbsp;&nbsp;&nbsp;V</span>
+            <div class="tab-menu-wrapper">
+              <button class="tab-menu-btn" onclick="toggleTabDropupMenu('menuFramework', event)" title="Parameters Tab Options">☰</button>
+              <div id="menuFramework" class="tab-dropup-menu">
+                <div class="tab-dropup-header">Parameters &amp; Framework Views</div>
+                <div class="tab-dropup-item" onclick="selectFrameworkView('params', event)">
+                  <span>SCP CCMPC Optimizer Parameters</span>
+                </div>
+                <div class="tab-dropup-item" onclick="selectFrameworkView('layers', event)">
+                  <span>Framework Layer Status</span>
+                </div>
+              </div>
+            </div>
           </div>
           <div class="panel-content-wrapper">
-            <div class="panel-grid-framework">
+            <div class="panel-grid-framework" id="panelGridFramework">
               <!-- Card 1: Framework Layer Status -->
-              <div class="card glass-card card-scrollable">
+              <div class="card glass-card card-scrollable framework-card" id="cardFrameworkLayers" style="display: none;">
                 <div class="card-header">
                   <h3>Framework Layer Status</h3>
                 </div>
@@ -279,151 +288,67 @@
                 </div>
               </div>
 
-              <!-- Card 2: SCP CCMPC Optimizer Parameters -->
-              <div class="card glass-card card-scrollable">
-                <div class="card-header">
-                  <h3>SCP CCMPC Optimizer Parameters</h3>
-                  <span class="info-btn-badge"
-                    onclick="alert('Two-Loop Sequential Convex Programming (SCP) Model Predictive Control (MPC) solves optimal pumping vectors E* subject to split conformal safety bounds.')"
-                    title="Click for Optimizer Overview">ℹ &nbsp;Overview</span>
-                </div>
-                <div class="control-form-compact">
-                  <div class="form-row-sm">
-                    <label>
-                      Planning Horizon (N Months):
-                      <button class="param-info-icon"
-                        title="Number of future monthly time steps optimized in rolling horizon MPC (1 to 120 months).">ℹ</button>
-                    </label>
+              <!-- Card 2: SCP CCMPC Optimizer Parameters (Matching insp/parameters and framework status.png) -->
+              <div class="framework-card scp-params-card" id="cardFrameworkParams">
+                <h1 class="scp-params-main-title">SCP CCMPC Optimizer Parameters</h1>
+
+                <div class="scp-params-form-list">
+                  <div class="scp-param-row">
+                    <span class="scp-param-label">Planning Horizon (N Months):<button class="param-info-icon" title="Number of future monthly time steps optimized in rolling horizon MPC (1 to 120 months).">i</button></span>
                     <input type="number" id="inputHVal" value="12" min="1" max="120" onchange="setCustomChartHorizon(this.value, null)">
                   </div>
 
-                  <div class="form-row-sm">
-                    <label>
-                      Min Water Table Limit (h_min):
-                      <button class="param-info-icon"
-                        title="Minimum allowable hydraulic head (meters MSL) before severe well depletion risk occurs. Default: 35.0m.">ℹ</button>
-                    </label>
+                  <div class="scp-param-row">
+                    <span class="scp-param-label">Min Water Table Limit (h_min):<button class="param-info-icon" title="Minimum allowable hydraulic head (meters MSL) before severe well depletion risk occurs. Default: 35.0m.">i</button></span>
                     <input type="number" id="hMinInput" value="35.0" step="0.5">
                   </div>
 
-                  <div class="form-row-sm">
-                    <label>
-                      Target Head Recovery (h_target):
-                      <button class="param-info-icon"
-                        title="Target steady-state water table recovery level (meters MSL) optimized by SCP. Default: 45.0m.">ℹ</button>
-                    </label>
+                  <div class="scp-param-row">
+                    <span class="scp-param-label">Target Head Recovery (h_target):<button class="param-info-icon" title="Target steady-state water table recovery level (meters MSL) optimized by SCP. Default: 45.0m.">i</button></span>
                     <input type="number" id="hTargetInput" value="45.0" step="0.5">
                   </div>
 
-                  <div class="form-row-sm">
-                    <label>
-                      Depletion Risk Tolerance (α):
-                      <button class="param-info-icon"
-                        title="Probability of violating safety threshold. 1 - α gives 95% conformal confidence coverage. Default: 0.05.">ℹ</button>
-                    </label>
+                  <div class="scp-param-row">
+                    <span class="scp-param-label">Depletion Risk Tolerance (α):<button class="param-info-icon" title="Probability of violating safety threshold. 1 - α gives 95% conformal confidence coverage. Default: 0.05.">i</button></span>
                     <input type="number" id="inputAlpha" value="0.05" step="0.01" min="0.01" max="0.2">
                   </div>
 
-                  <div class="form-row-sm">
-                    <label>
-                      Conformal Error Margin (q̂):
-                      <button class="param-info-icon"
-                        title="Empirical error quantile computed by Split Conformal Prediction for finite-sample safety margins.">ℹ</button>
-                    </label>
-                    <div class="input-badge-wrapper">
-                      <span id="qHatBadge" class="badge-blue">q̂ = 0.496m</span>
-                    </div>
+                  <div class="scp-param-row">
+                    <span class="scp-param-label">Conformal Error Margin (q̂):<button class="param-info-icon" title="Empirical error quantile computed by Split Conformal Prediction for finite-sample safety margins.">i</button></span>
+                    <span id="qHatBadge" class="param-qhat-text">q̂ = 0.496m</span>
                   </div>
 
-                  <div class="form-row-sm">
-                    <label>
-                      Max Pumping Capacity (E_max):
-                      <button class="param-info-icon"
-                        title="Maximum allowable monthly extraction rate per well (m³/month). Default: 100.0 m³/mo.">ℹ</button>
-                    </label>
+                  <div class="scp-param-row">
+                    <span class="scp-param-label">Max Pumping Capacity (E_max):<button class="param-info-icon" title="Maximum allowable monthly extraction rate per well (m³/month). Default: 100.0 m³/mo.">i</button></span>
                     <input type="number" id="eMaxInput" value="100.0" step="5.0">
                   </div>
 
-                  <div class="form-row-sm">
-                    <label>
-                      Pumping Cost Weight (γ_pump):
-                      <button class="param-info-icon"
-                        title="Objective cost penalty multiplier for groundwater pumping energy consumption. Default: 1.0.">ℹ</button>
-                    </label>
+                  <div class="scp-param-row">
+                    <span class="scp-param-label">Pumping Cost Weight (γ_pump):<button class="param-info-icon" title="Objective cost penalty multiplier for groundwater pumping energy consumption. Default: 1.0.">i</button></span>
                     <input type="number" id="gammaPumpInput" value="1.0" step="0.1">
                   </div>
 
-                  <div class="form-row-sm">
-                    <label>
-                      Violation Slack Penalty (σ_slack):
-                      <button class="param-info-icon"
-                        title="Penalty weight for soft slack variable incursions under extreme drought scenarios. Default: 100.0.">ℹ</button>
-                    </label>
+                  <div class="scp-param-row">
+                    <span class="scp-param-label">Violation Slack Penalty (σ_slack):<button class="param-info-icon" title="Penalty weight for soft slack variable incursions under extreme drought scenarios. Default: 100.0.">i</button></span>
                     <input type="number" id="sigmaSlackInput" value="100.0" step="10.0">
                   </div>
 
-                  <div class="form-row-sm">
-                    <label>
-                      Trust Region Radius (Δ_trust):
-                      <button class="param-info-icon"
-                        title="Sequential Convex Programming (SCP) linearization trust region radius. Default: 5.0m.">ℹ</button>
-                    </label>
+                  <div class="scp-param-row">
+                    <span class="scp-param-label">Trust Region Radius (Δ_trust):<button class="param-info-icon" title="Sequential Convex Programming (SCP) linearization trust region radius. Default: 5.0m.">i</button></span>
                     <input type="number" id="deltaTrustInput" value="5.0" step="0.5">
                   </div>
 
-                  <div class="form-row-sm">
-                    <label>
-                      Max SCP Outer Iterations:
-                      <button class="param-info-icon"
-                        title="Maximum outer loop SCP convex solver iterations before convergence check. Default: 20.">ℹ</button>
-                    </label>
+                  <div class="scp-param-row">
+                    <span class="scp-param-label">Max SCP Outer Iterations:</span>
                     <input type="number" id="maxIterInput" value="20" min="5" max="50">
                   </div>
-
-                  <button class="btn btn-primary btn-block mt-2" onclick="runOptimization()">Optimize Pumping
-                    Quotas</button>
-                  <div id="controlResultBox" class="result-box mt-2">
-                    <small>Optimal Quotas Solved. Conformal Bound Active.</small>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Card 3: Depletion Warning System -->
-              <div class="card glass-card">
-                <div class="card-header flex-between">
-                  <div>
-                    <div style="display: flex; align-items: center; gap: 6px;">
-                      <h3>Depletion Warning System</h3>
-                      <button class="param-info-icon" onclick="openDepletionInfoModal()"
-                        title="Click for Depletion Warning System Technical Overview">ℹ</button>
-                    </div>
-                    <p class="card-sub" style="margin: 2px 0 0 0; font-size: 0.75rem; color: #94a3b8;">Conformal safety
-                      bound checks, drawdown velocity &amp; time-to-depletion</p>
-                  </div>
-                  <div class="flex-align-center gap-2">
-                    <span id="alertCountBadge" class="badge-alert"
-                      style="background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239,68,68,0.4); font-family: 'JetBrains Mono', monospace;">0
-                      Alerts</span>
-                  </div>
                 </div>
 
-                <!-- Depletion System Network Health Header Summary Bar -->
-                <div id="depletionSummaryHeader" class="grid-3-col gap-2 p-2 mt-2"
-                  style="background: rgba(0,0,0,0.35); border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); font-size: 0.75rem; display: grid; grid-template-columns: repeat(3, 1fr); text-align: center;">
-                  <div style="padding: 4px;"><span style="color:#94a3b8; display:block; font-size: 0.7rem;">HEALTH
-                      SCORE</span><strong id="depHealthScore" style="color:#10b981; font-size:1.05rem;">100%</strong>
+                <div class="scp-calculate-action-block">
+                  <a href="#" onclick="runOptimization(); return false;" class="btn-calculate-link">Calculate &gt;</a>
+                  <div id="controlResultBox" class="result-box mt-2" style="margin-top: 0.6rem; background: transparent; border: none; padding: 0;">
+                    <small style="color: #15803d; font-weight: 500; font-size: 0.9rem;">✓ Optimal Quotas Solved. Conformal Bound Active.</small>
                   </div>
-                  <div style="padding: 4px;"><span style="color:#94a3b8; display:block; font-size: 0.7rem;">CRITICAL
-                      WELLS</span><strong id="depCriticalCount" style="color:#ef4444; font-size:1.05rem;">0</strong>
-                  </div>
-                  <div style="padding: 4px;"><span style="color:#94a3b8; display:block; font-size: 0.7rem;">AVG
-                      DRAWDOWN</span><strong id="depAvgVel" style="color:#38bdf8; font-size:1.05rem;">0.00 m/mo</strong>
-                  </div>
-                </div>
-
-                <div id="alertsContainer" class="alerts-container mt-2"
-                  style="max-height: 550px; overflow-y: auto; margin-top: 1%;">
-                  <div class="alert-item alert-safe">✓ All wells operating within conformal safety bounds.</div>
                 </div>
               </div>
             </div>
@@ -434,6 +359,15 @@
         <section id="panelMaps" class="accordion-panel panel-collapsed">
           <div class="vertical-tab-strip" onclick="switchMainPanel('panelMaps')">
             <span class="tab-label">Interactive map and 3D aquified model&nbsp;&nbsp;&nbsp;&nbsp;V</span>
+            <div class="tab-menu-wrapper">
+              <button class="tab-menu-btn" onclick="toggleTabDropupMenu('menuMaps', event)" title="Map Tab Options">☰</button>
+              <div id="menuMaps" class="tab-dropup-menu">
+                <div class="tab-dropup-header">Map Panel Options</div>
+                <div class="tab-dropup-item" onclick="closeAllTabDropupMenus(event)">
+                  <span>🗺️ GIS &amp; 3D Aquifer Visualizer</span>
+                </div>
+              </div>
+            </div>
           </div>
           <div class="panel-content-wrapper">
             <div class="panel-grid-dual">
@@ -480,10 +414,19 @@
           </div>
         </section>
 
-        <!-- Panel 3: Predictions ∨ (EXPANDED BY DEFAULT) -->
-        <section id="panelPredictions" class="accordion-panel panel-expanded">
+        <!-- Panel 3: Predictions ∨ -->
+        <section id="panelPredictions" class="accordion-panel panel-collapsed">
           <div class="vertical-tab-strip" onclick="switchMainPanel('panelPredictions')">
             <span class="tab-label">Predictions&nbsp;&nbsp;&nbsp;&nbsp;V</span>
+            <div class="tab-menu-wrapper">
+              <button class="tab-menu-btn" onclick="toggleTabDropupMenu('menuPredictions', event)" title="Predictions Tab Options">☰</button>
+              <div id="menuPredictions" class="tab-dropup-menu">
+                <div class="tab-dropup-header">Prediction Tools</div>
+                <div class="tab-dropup-item" onclick="triggerGenerateReportFromMenu(event)">
+                  <span>📄 Generate Location Report</span>
+                </div>
+              </div>
+            </div>
           </div>
           <div class="panel-content-wrapper">
             <div class="panel-grid-dual">
@@ -542,6 +485,12 @@
           </div>
         </section>
 
+        <!-- Collapsed Workspace Notice (Visible when all panels are collapsed) -->
+        <div id="collapsedWorkspaceNotice" class="collapsed-workspace-notice">
+          <p class="collapsed-notice-text">
+            For more information click <a href="/help" target="_blank" class="collapsed-notice-link">here</a>
+          </p>
+        </div>
       </main>
     </section>
 

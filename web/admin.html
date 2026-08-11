@@ -145,6 +145,41 @@
         </table>
       </div>
     </section>
+    <!-- REST API Endpoints Reference -->
+    <section class="card glass-card" style="border: 1px solid var(--border-color); backdrop-filter: blur(12px); border-radius: 16px; padding: 24px; margin-top: 8px;">
+      <div style="margin-bottom: 16px;">
+        <h3 style="font-family: 'Outfit', sans-serif; color: var(--cyan); font-size: 1.15rem;">REST API Endpoints Reference</h3>
+        <p class="card-sub" style="color: var(--text-sub); font-size: 0.84rem;">Complete list of all available API routes and their descriptions.</p>
+      </div>
+      <div class="table-scroll" style="border-radius: 10px; border: 1px solid var(--border-color); overflow-x: auto;">
+        <table class="quota-table" style="width: 100%; border-collapse: collapse; font-size: 0.82rem;">
+          <thead>
+            <tr style="background: rgba(0,242,254,0.08); border-bottom: 1px solid var(--border-color);">
+              <th style="padding: 10px 12px; text-align: left; color: #fff; font-family: 'Outfit', sans-serif;">Endpoint</th>
+              <th style="padding: 10px 12px; text-align: left; color: #fff; font-family: 'Outfit', sans-serif;">Method</th>
+              <th style="padding: 10px 12px; text-align: left; color: #fff; font-family: 'Outfit', sans-serif;">Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="border-bottom: 1px solid var(--border-color);"><td style="padding:9px 12px;color:#94a3b8;font-family:'JetBrains Mono',monospace;"><code>/</code></td><td style="padding:9px 12px;color:#94a3b8;">GET</td><td style="padding:9px 12px;color:#94a3b8;">Main User Control Dashboard</td></tr>
+            <tr style="border-bottom: 1px solid var(--border-color);"><td style="padding:9px 12px;color:#94a3b8;font-family:'JetBrains Mono',monospace;"><code>/admin</code></td><td style="padding:9px 12px;color:#94a3b8;">GET</td><td style="padding:9px 12px;color:#94a3b8;">Admin Control Center Panel</td></tr>
+            <tr style="border-bottom: 1px solid var(--border-color);"><td style="padding:9px 12px;color:#94a3b8;font-family:'JetBrains Mono',monospace;"><code>/help</code></td><td style="padding:9px 12px;color:#94a3b8;">GET</td><td style="padding:9px 12px;color:#94a3b8;">Implementation Guide</td></tr>
+            <tr style="border-bottom: 1px solid var(--border-color);"><td style="padding:9px 12px;color:var(--cyan);font-family:'JetBrains Mono',monospace;"><code>/api/v1/status</code></td><td style="padding:9px 12px;color:#94a3b8;">GET</td><td style="padding:9px 12px;color:#94a3b8;">System status, grid metadata, conformal q̂</td></tr>
+            <tr style="border-bottom: 1px solid var(--border-color);"><td style="padding:9px 12px;color:var(--cyan);font-family:'JetBrains Mono',monospace;"><code>/api/v1/config/location</code></td><td style="padding:9px 12px;color:#94a3b8;">POST</td><td style="padding:9px 12px;color:#94a3b8;">Set geographic region preset or custom bounds</td></tr>
+            <tr style="border-bottom: 1px solid var(--border-color);"><td style="padding:9px 12px;color:var(--cyan);font-family:'JetBrains Mono',monospace;"><code>/api/v1/config/data_source</code></td><td style="padding:9px 12px;color:#94a3b8;">POST</td><td style="padding:9px 12px;color:#94a3b8;">Toggle synthetic ↔ realtime data channel</td></tr>
+            <tr style="border-bottom: 1px solid var(--border-color);"><td style="padding:9px 12px;color:var(--cyan);font-family:'JetBrains Mono',monospace;"><code>/api/v1/forecast/spatial_drawdown</code></td><td style="padding:9px 12px;color:#94a3b8;">GET</td><td style="padding:9px 12px;color:#94a3b8;">GeoJSON raster payloads of predicted hydraulic head states</td></tr>
+            <tr style="border-bottom: 1px solid var(--border-color);"><td style="padding:9px 12px;color:var(--cyan);font-family:'JetBrains Mono',monospace;"><code>/api/v1/forecast/spatial_drawdown_3d</code></td><td style="padding:9px 12px;color:#94a3b8;">GET</td><td style="padding:9px 12px;color:#94a3b8;">3D WebGL mesh vertices [x, y, z_terrain, z_water, z_bedrock]</td></tr>
+            <tr style="border-bottom: 1px solid var(--border-color);"><td style="padding:9px 12px;color:var(--cyan);font-family:'JetBrains Mono',monospace;"><code>/api/v1/forecast/location_predict</code></td><td style="padding:9px 12px;color:#94a3b8;">POST</td><td style="padding:9px 12px;color:#94a3b8;">Localized G(lat, lon, t) prediction &amp; raster slice</td></tr>
+            <tr style="border-bottom: 1px solid var(--border-color);"><td style="padding:9px 12px;color:var(--cyan);font-family:'JetBrains Mono',monospace;"><code>/api/v1/control/pumping_quotas</code></td><td style="padding:9px 12px;color:#94a3b8;">POST</td><td style="padding:9px 12px;color:#94a3b8;">SCP-CCMPC optimal pumping schedule E*₁:H</td></tr>
+            <tr style="border-bottom: 1px solid var(--border-color);"><td style="padding:9px 12px;color:var(--cyan);font-family:'JetBrains Mono',monospace;"><code>/api/v1/reports/view</code></td><td style="padding:9px 12px;color:#94a3b8;">GET</td><td style="padding:9px 12px;color:#94a3b8;">Printable Location Assessment HTML Report (with embedded chart)</td></tr>
+            <tr style="border-bottom: 1px solid var(--border-color);"><td style="padding:9px 12px;color:#f59e0b;font-family:'JetBrains Mono',monospace;"><code>/api/v1/admin/telemetry</code></td><td style="padding:9px 12px;color:#94a3b8;">GET</td><td style="padding:9px 12px;color:#94a3b8;">System telemetry metrics</td></tr>
+            <tr style="border-bottom: 1px solid var(--border-color);"><td style="padding:9px 12px;color:#f59e0b;font-family:'JetBrains Mono',monospace;"><code>/api/v1/admin/history</code></td><td style="padding:9px 12px;color:#94a3b8;">GET</td><td style="padding:9px 12px;color:#94a3b8;">Optimization audit log</td></tr>
+            <tr style="border-bottom: 1px solid var(--border-color);"><td style="padding:9px 12px;color:#f59e0b;font-family:'JetBrains Mono',monospace;"><code>/api/v1/admin/recalibrate</code></td><td style="padding:9px 12px;color:#94a3b8;">POST</td><td style="padding:9px 12px;color:#94a3b8;">Recalibrate conformal predictor q̂</td></tr>
+            <tr><td style="padding:9px 12px;color:#f59e0b;font-family:'JetBrains Mono',monospace;"><code>/api/v1/admin/export_history</code></td><td style="padding:9px 12px;color:#94a3b8;">GET</td><td style="padding:9px 12px;color:#94a3b8;">Export audit log as CSV</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
   </div>
 
   <script src="/static/admin.js"></script>

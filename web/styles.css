@@ -111,25 +111,25 @@ textarea:focus,
 
 /* 1. Top Header Bar (#121212 background) */
 .top-header {
-  background-color: #121212;
-  color: #E0E0E0;
-  padding: 0.6rem 1.5rem;
+  background-color: #000000;
+  color: #FFFFFF;
+  padding: 0.6rem 2rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
   height: 48px;
   flex-shrink: 0;
-  border-bottom: 1px solid #444444;
+  border-bottom: 1px solid #222222;
   position: relative;
   z-index: 10001;
 }
 
 .header-brand {
-  font-size: 1.1rem;
-  font-weight: 600;
-  letter-spacing: 0.3px;
-  color: #E0E0E0;
+  font-size: 1.05rem;
+  font-weight: 400;
+  letter-spacing: 0.2px;
+  color: #FFFFFF;
 }
 
 .header-nav-right {
@@ -139,9 +139,9 @@ textarea:focus,
 }
 
 .header-nav-link {
-  color: #E0E0E0;
-  font-weight: 500;
-  font-size: 0.95rem;
+  color: #FFFFFF;
+  font-weight: 400;
+  font-size: 1.05rem;
   text-decoration: none;
   transition: opacity 0.2s;
   cursor: pointer;
@@ -322,12 +322,14 @@ input::placeholder {
 .vertical-accordion-container {
   display: flex;
   flex-direction: row;
-  height: calc(100vh - 110px);
+  height: calc(100vh - 48px);
   width: 100%;
-  padding: 0.4rem 1rem 0.8rem 1rem;
-  gap: 0.6rem;
+  padding: 0.5rem;
+  gap: 0.5rem;
   overflow: hidden;
   flex: 1;
+  background-color: #D4D4D4;
+  box-sizing: border-box;
 }
 
 /* 4. Fullscreen Screen 2 Capstone Project Footer */
@@ -403,16 +405,17 @@ input::placeholder {
 .accordion-panel {
   display: flex;
   flex-direction: row;
-  border-radius: 14px;
+  background-color: #D4D4D4;
+  border-radius: 0;
   overflow: hidden;
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
   height: 100%;
 }
 
 /* Collapsed Panel Strip */
 .panel-collapsed {
-  flex: 0 0 45px;
-  max-width: 45px;
+  flex: 0 0 48px;
+  max-width: 48px;
   cursor: pointer;
 }
 
@@ -420,45 +423,292 @@ input::placeholder {
   display: none !important;
 }
 
+/* Vertical Tab Strip - RETAINED VISIBLE FOR ALL TABS (Collapsed & Expanded) */
 .vertical-tab-strip {
-  width: 45px;
-  min-width: 45px;
+  width: 48px;
+  min-width: 48px;
   height: 100%;
-  background: #18181b;
-  border-radius: 12px;
+  background: #D4D4D4;
   display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding-top: 14px;
-  border: 1px solid #444444;
-  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.3);
-  transition: background 0.2s, border-color 0.2s;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.5rem 0 1rem 0;
+  border-right: 1.5px solid rgba(0, 0, 0, 0.18);
   box-sizing: border-box;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.2s;
+  flex-shrink: 0;
 }
 
-.panel-collapsed:hover .vertical-tab-strip {
-  background: #444444;
-  border-color: #888888;
+.panel-collapsed .vertical-tab-strip {
+  border-right: 1.5px solid rgba(0, 0, 0, 0.18);
+}
+
+.vertical-tab-strip:hover {
+  background: #C8C8C8;
 }
 
 .tab-label {
   writing-mode: vertical-rl;
   transform: rotate(180deg);
-  font-weight: 600;
-  font-size: 0.9rem;
-  color: #E0E0E0;
-  letter-spacing: 0.5px;
+  font-weight: 500;
+  font-size: 0.92rem;
+  color: #111111;
+  letter-spacing: 0.3px;
   white-space: nowrap;
+  font-family: var(--font-family);
+}
+
+/* Vertical Tab Drop-Up Menu System */
+.panel-collapsed .tab-menu-wrapper,
+.panel-collapsed .tab-menu-btn {
+  display: none !important;
+}
+
+.panel-expanded .tab-menu-wrapper,
+.panel-expanded .tab-menu-btn {
+  display: flex !important;
+}
+
+.tab-menu-wrapper {
+  position: relative;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.tab-menu-btn {
+  background: transparent;
+  border: none !important;
+  color: #111111;
+  font-size: 1.25rem;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s, transform 0.2s;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.tab-menu-btn:hover {
+  background: rgba(0, 0, 0, 0.12);
+  transform: scale(1.1);
+}
+
+.tab-dropup-menu {
+  position: absolute;
+  bottom: 100%;
+  left: 10px;
+  margin-bottom: 8px;
+  width: 270px;
+  background: #18181b;
+  border: 1px solid #444444;
+  border-radius: 12px;
+  box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.8), 0 0 15px rgba(255, 255, 255, 0.05);
+  padding: 0.6rem;
+  z-index: 9999999 !important;
+  display: none;
+  flex-direction: column;
+  gap: 0.35rem;
+  animation: dropupFadeIn 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.tab-dropup-menu.active {
+  display: flex !important;
+}
+
+@keyframes dropupFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.tab-dropup-header {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #888888;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 0.2rem 0.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  margin-bottom: 0.2rem;
+}
+
+.tab-dropup-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: 8px;
+  color: #E0E0E0;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+.tab-dropup-item:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
+/* SCP CCMPC Optimizer Parameters - Pixel-perfect match for insp/parameters and framework status.png */
+/* SCP CCMPC Optimizer Parameters - Pixel-perfect match for insp/parameters and framework status.png */
+/* SCP CCMPC Optimizer Parameters - Fits without scrolling */
+.scp-params-card {
+  display: flex;
+  flex-direction: column;
+  background: #FFFFFF;
+  border: 1.5px solid #D0D0D0;
+  border-radius: 14px;
+  padding: 0.8rem 2.2rem;
+  color: #111111;
+  font-family: var(--font-family);
+  overflow: hidden;
+  height: 100%;
+  box-sizing: border-box;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.10);
+}
+
+.scp-params-main-title {
+  font-size: 1.6rem;
+  font-weight: 400;
+  color: #111111;
+  margin-top: 0.1rem;
+  margin-bottom: 0.7rem;
+  letter-spacing: -0.2px;
+  font-family: var(--font-family);
+}
+
+.scp-params-form-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.38rem;
+  max-width: 600px;
+}
+
+.scp-param-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.88rem;
+  color: #111111;
+  font-weight: 400;
+}
+
+.scp-param-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: #111111;
+  font-size: 0.88rem;
+  font-weight: 400;
+}
+
+.param-info-icon {
+  background: #6C8EA4 !important;
+  color: #FFFFFF !important;
+  border: none !important;
+  width: 16px !important;
+  height: 16px !important;
+  min-width: 16px !important;
+  border-radius: 4px !important;
+  font-size: 0.68rem !important;
+  font-style: italic !important;
+  font-weight: 700 !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin-left: 0.25rem !important;
+  padding: 0 !important;
+  vertical-align: middle !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15) !important;
+  line-height: 1 !important;
+}
+
+.param-info-icon:hover {
+  background: #5B7D93 !important;
+  transform: scale(1.1) !important;
+}
+
+.scp-param-row input {
+  width: 75px;
+  background: transparent !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  color: #111111 !important;
+  font-size: 0.88rem !important;
+  font-weight: 500 !important;
+  font-family: var(--mono-family) !important;
+  padding: 0 0.2rem !important;
+}
+
+.scp-param-row input[type=number]::-webkit-inner-spin-button,
+.scp-param-row input[type=number]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.scp-param-row input[type=number] {
+  -moz-appearance: textfield;
+}
+
+.param-qhat-text {
+  font-size: 0.88rem;
+  color: #111111;
+  font-weight: 500;
+  margin-left: 0.2rem;
+}
+
+.scp-calculate-action-block {
+  margin-top: 0.8rem;
+}
+
+.btn-calculate-link {
+  font-size: 1.1rem;
+  color: #111111;
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  display: inline-block;
+}
+
+.btn-calculate-link:hover {
+  opacity: 0.7;
 }
 
 /* Expanded Panel Content */
 .panel-expanded {
   flex: 1 1 auto;
   cursor: default;
+  display: flex;
+  flex-direction: row;
 }
 
+/* Retain tab strip for expanded panels so user knows which tab is active */
 .panel-expanded .vertical-tab-strip {
-  display: none !important;
+  display: flex !important;
+  background: #CBCBCB;
+  border-right: 1.5px solid rgba(0, 0, 0, 0.18);
 }
 
 .panel-content-wrapper {
@@ -468,6 +718,9 @@ input::placeholder {
   height: 100%;
   overflow: hidden;
   animation: fadeIn 0.3s ease;
+  background: #D0D0D0;
+  padding: 0.8rem 1rem;
+  box-sizing: border-box;
 }
 
 .panel-grid-framework {
@@ -487,18 +740,26 @@ input::placeholder {
   width: 100%;
 }
 
-/* Glass Cards in Panel */
+/* ─── Cards: Framework panel = white (light), Maps/Predictions = dark ─── */
 .glass-card {
-  background: rgba(18, 18, 18, 0.95);
-  backdrop-filter: blur(12px);
+  /* Default = dark (for Maps & Predictions with dark visualizations) */
+  background: #1C1C20;
   border-radius: 14px;
-  border: 1px solid #444444;
+  border: 1px solid #333338;
   padding: 1rem;
-  color: #E0E0E0;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+  color: #E2E2E2;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+/* Framework panel: white cards on gray workspace */
+#panelFramework .glass-card {
+  background: #FFFFFF;
+  border: 1.5px solid #D0D0D0;
+  color: #111111;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.10);
 }
 
 .card-full-h {
@@ -518,15 +779,65 @@ input::placeholder {
   flex-shrink: 0;
 }
 
-.card-header h3 {
+/* Dark card headers (Maps/Predictions) */
+.glass-card .card-header h3 {
   font-size: 0.95rem;
   font-weight: 600;
-  color: #E0E0E0;
+  color: #E2E2E2;
+}
+
+/* Light card headers (Framework) */
+#panelFramework .glass-card .card-header h3 {
+  color: #111111;
+}
+
+/* Dark card sub-text */
+.glass-card .card-sub {
+  font-size: 0.75rem;
+  color: #888888;
+}
+
+/* Light card sub-text */
+#panelFramework .glass-card .card-sub {
+  color: #666666;
 }
 
 .card-sub {
   font-size: 0.75rem;
-  color: #B0B0B0;
+  color: #888888;
+}
+
+/* Collapsed Workspace Notice */
+.collapsed-workspace-notice {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  background: #D4D4D4;
+  text-align: center;
+  padding: 2rem;
+}
+
+.collapsed-notice-text {
+  font-size: 1.2rem;
+  color: #222222;
+  font-weight: 400;
+  font-family: var(--font-family);
+  margin: 0;
+}
+
+.collapsed-notice-link {
+  color: #000000;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.collapsed-notice-link:hover {
+  opacity: 0.7;
 }
 
 .layer-list-detailed,
@@ -539,7 +850,15 @@ input::placeholder {
   padding-right: 6px;
   max-height: 100%;
   scrollbar-width: thin;
-  scrollbar-color: #888888 rgba(0, 0, 0, 0.4);
+  scrollbar-color: #BBBBBB rgba(0, 0, 0, 0.08);
+}
+
+/* Dark context scrollbars (maps/predictions panels) */
+#panelMaps .layer-list-detailed,
+#panelPredictions .layer-list-detailed,
+#panelMaps .card-scrollable,
+#panelPredictions .card-scrollable {
+  scrollbar-color: #666666 rgba(0, 0, 0, 0.4);
 }
 
 .layer-list-detailed::-webkit-scrollbar,
@@ -617,43 +936,76 @@ input::placeholder {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 0.45rem;
+  margin-bottom: 0.55rem;
+  padding: 0.2rem 0;
 }
 
 .control-form-compact .form-row-sm label {
-  font-size: 0.76rem;
-  color: #B0B0B0;
+  font-size: 0.8rem;
+  color: #C0C0C0;
   display: flex;
   align-items: center;
+  font-weight: 400;
+}
+
+/* Override for framework panel (light card) */
+#panelFramework .control-form-compact .form-row-sm label {
+  color: #555555;
 }
 
 .control-form-compact .form-row-sm input,
 .form-row-sm input {
-  width: 85px;
-  min-width: 85px;
-  background: transparent;
-  border: none;
-  border-radius: 0;
-  color: #E0E0E0;
-  padding: 0.2rem 0.3rem;
-  font-size: 0.78rem;
+  width: 90px;
+  min-width: 90px;
+  background: transparent !important;
+  border: none !important;
+  border-bottom: none !important;
+  border-top: none !important;
+  border-left: none !important;
+  border-right: none !important;
+  border-radius: 0 !important;
+  color: #FFFFFF !important;
+  padding: 0.2rem 0.4rem !important;
+  font-size: 0.88rem !important;
+  font-weight: 500 !important;
   font-family: var(--mono-family);
   text-align: right;
-  outline: none;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Override for framework panel (light card) */
+#panelFramework .control-form-compact .form-row-sm input,
+#panelFramework .form-row-sm input {
+  color: #111111 !important;
+}
+
+/* Remove spin buttons for minimal clean look */
+.control-form-compact input[type=number]::-webkit-inner-spin-button,
+.control-form-compact input[type=number]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.control-form-compact input[type=number] {
+  -moz-appearance: textfield;
 }
 
 .control-form-compact .form-row-sm input:hover,
 .control-form-compact .form-row-sm input:focus,
 .form-row-sm input:hover,
 .form-row-sm input:focus {
-  border: none;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  color: #60a5fa !important;
 }
 
 .layer-card-item {
-  background: rgba(255, 255, 255, 0.04);
+  background: #F4F4F4;
   border-radius: 8px;
   padding: 0.6rem;
-  border: 1px solid #444444;
+  border: 1px solid #DEDEDE;
   font-size: 0.75rem;
 }
 
@@ -662,24 +1014,24 @@ input::placeholder {
   align-items: center;
   gap: 0.4rem;
   font-size: 0.8rem;
-  color: #E0E0E0;
+  color: #111111;
   margin-bottom: 0.25rem;
 }
 
 .layer-card-meaning {
-  color: #B0B0B0;
+  color: #444444;
   line-height: 1.35;
   margin-bottom: 0.3rem;
 }
 
 .layer-card-meaning strong {
-  color: #E0E0E0;
+  color: #111111;
 }
 
 .layer-card-tech {
   font-family: var(--mono-family);
   font-size: 0.68rem;
-  color: #888888;
+  color: #777777;
 }
 
 .card-scrollable {
@@ -711,6 +1063,11 @@ input::placeholder {
   white-space: nowrap;
 }
 
+/* Framework panel: dark text labels */
+#panelFramework .form-row-sm label {
+  color: #444444;
+}
+
 .form-row-sm input {
   width: 85px;
   min-width: 85px;
@@ -723,6 +1080,11 @@ input::placeholder {
   font-size: 0.78rem;
   text-align: right;
   outline: none;
+}
+
+/* Framework panel: dark text inputs */
+#panelFramework .form-row-sm input {
+  color: #111111;
 }
 
 .form-row-sm input:focus {
@@ -754,7 +1116,7 @@ input::placeholder {
   display: grid;
   grid-template-columns: repeat(16, 1fr);
   gap: 3px;
-  background: rgba(0, 0, 0, 0.6);
+  background: #0D0D10;
   padding: 6px;
   border-radius: 10px;
   height: 100%;
@@ -902,9 +1264,9 @@ input::placeholder {
 }
 
 .horizon-badge {
-  background: rgba(255, 255, 255, 0.08);
-  color: #E0E0E0;
-  border: 1px solid #444444;
+  background: rgba(255, 255, 255, 0.07);
+  color: #CCCCCC;
+  border: 1px solid #3A3A40;
   padding: 0.25rem 0.6rem;
   border-radius: 12px;
   font-size: 0.72rem;
@@ -923,14 +1285,14 @@ input::placeholder {
 .alert-item {
   padding: 0.4rem 0.6rem;
   border-radius: 6px;
-  background: rgba(18, 18, 18, 0.95);
-  border: 1px solid #444444;
+  background: #141418;
+  border: 1px solid #2E2E34;
 }
 
 .alert-safe {
-  background: rgba(255, 255, 255, 0.05);
-  color: #E0E0E0;
-  border: 1px solid #444444;
+  background: rgba(255, 255, 255, 0.04);
+  color: #CCCCCC;
+  border: 1px solid #2E2E34;
 }
 
 .status-indicator-pill-sm {
@@ -939,12 +1301,12 @@ input::placeholder {
 }
 
 .result-box {
-  background: rgba(0, 0, 0, 0.6);
+  background: #0D0D10;
   padding: 0.4rem;
   border-radius: 6px;
   font-size: 0.75rem;
-  color: #B0B0B0;
-  border: 1px solid #444444;
+  color: #AAAAAA;
+  border: 1px solid #2A2A30;
 }
 
 /* Help Modal Overlay Styles */
@@ -1213,7 +1575,7 @@ input::placeholder {
   border: none;
   border-radius: 0;
   padding: 0;
-  margin-top: 5rem;
+  margin-top: 4rem;
   margin-left: 150px;
   box-shadow: none;
 }

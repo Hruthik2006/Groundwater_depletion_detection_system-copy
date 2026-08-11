@@ -16,16 +16,17 @@ let globePulseTime = 0;
 
 function switchMainPanel(selectedId) {
   const panels = ["panelFramework", "panelMaps", "panelPredictions"];
+  const currentPanel = document.getElementById(selectedId);
+  const isAlreadyExpanded = currentPanel && currentPanel.classList.contains("panel-expanded");
 
   panels.forEach((id) => {
     const el = document.getElementById(id);
     if (!el) return;
 
-    if (id === selectedId) {
+    if (id === selectedId && !isAlreadyExpanded) {
       el.classList.remove("panel-collapsed");
       el.classList.add("panel-expanded");
 
-      // Dynamic resize for 2D GIS Map & 3D WebGL Aquifer Map when maps panel is active
       if (id === "panelMaps") {
         setTimeout(() => {
           if (gisMap) gisMap.invalidateSize();
@@ -41,6 +42,91 @@ function switchMainPanel(selectedId) {
       el.classList.add("panel-collapsed");
     }
   });
+
+  const noticeEl = document.getElementById("collapsedWorkspaceNotice");
+  const anyExpanded = panels.some((id) => {
+    const p = document.getElementById(id);
+    return p && p.classList.contains("panel-expanded");
+  });
+
+  if (noticeEl) {
+    noticeEl.style.display = anyExpanded ? "none" : "flex";
+  }
+}
+
+function toggleTabDropupMenu(menuId, e) {
+  if (e) {
+    e.stopPropagation();
+    e.preventDefault();
+  }
+  const targetMenu = document.getElementById(menuId);
+  if (!targetMenu) return;
+
+  const isAlreadyActive = targetMenu.classList.contains("active");
+  closeAllTabDropupMenus();
+
+  if (!isAlreadyActive) {
+    targetMenu.classList.add("active");
+  }
+}
+
+function closeAllTabDropupMenus(e) {
+  const menus = document.querySelectorAll(".tab-dropup-menu");
+  menus.forEach((m) => m.classList.remove("active"));
+}
+
+document.addEventListener("click", (e) => {
+  if (!e.target.closest(".tab-menu-wrapper")) {
+    closeAllTabDropupMenus();
+  }
+});
+
+function selectFrameworkView(mode, e) {
+  if (e) {
+    e.stopPropagation();
+    e.preventDefault();
+  }
+  closeAllTabDropupMenus();
+
+  const cardLayers = document.getElementById("cardFrameworkLayers");
+  const cardParams = document.getElementById("cardFrameworkParams");
+  const gridContainer = document.getElementById("panelGridFramework");
+  const titleEl = document.getElementById("frameworkSubTitle");
+
+  const chipParams = document.getElementById("chipSubParams");
+  const chipLayers = document.getElementById("chipSubLayers");
+  const chipAll = document.getElementById("chipSubAll");
+
+  [chipParams, chipLayers, chipAll].forEach((c) => c && c.classList.remove("active"));
+
+  if (mode === "params") {
+    if (titleEl) titleEl.innerText = "SCP CCMPC Optimizer Parameters";
+    if (chipParams) chipParams.classList.add("active");
+    if (gridContainer) gridContainer.style.gridTemplateColumns = "1fr";
+    if (cardParams) cardParams.style.display = "flex";
+    if (cardLayers) cardLayers.style.display = "none";
+  } else if (mode === "layers") {
+    if (titleEl) titleEl.innerText = "Framework Layer Status";
+    if (chipLayers) chipLayers.classList.add("active");
+    if (gridContainer) gridContainer.style.gridTemplateColumns = "1fr";
+    if (cardParams) cardParams.style.display = "none";
+    if (cardLayers) cardLayers.style.display = "flex";
+  } else if (mode === "all") {
+    if (titleEl) titleEl.innerText = "Parameters & Framework Overview";
+    if (chipAll) chipAll.classList.add("active");
+    if (gridContainer) gridContainer.style.gridTemplateColumns = "1fr 1fr";
+    if (cardParams) cardParams.style.display = "flex";
+    if (cardLayers) cardLayers.style.display = "flex";
+  }
+}
+
+function triggerGenerateReportFromMenu(e) {
+  if (e) {
+    e.stopPropagation();
+    e.preventDefault();
+  }
+  closeAllTabDropupMenus();
+  openLocationReport();
 }
 
 function resize3DMap() {
@@ -1363,6 +1449,7 @@ async function runOptimization() {
 
 function updateQuotaTable(quotas) {
   const tbody = document.getElementById("quotaTableBody");
+  if (!tbody || !quotas) return;
   tbody.innerHTML = "";
   const numWells = quotas[0] ? quotas[0].length : 0;
 
@@ -1522,7 +1609,25 @@ function openLocationReport() {
 
   if (hiddenH) hiddenH.value = horizon;
 
-  const reportUrl = `/api/v1/reports/view?lat=${lat}&lon=${lon}&horizon=${horizon}`;
+  // Extract chart data from the Piezometric Head Chart instance
+  let chartParams = "";
+  try {
+    if (chartInstance && chartInstance.data) {
+      const cd = chartInstance.data;
+      const labels = cd.labels || [];
+      const predDs = cd.datasets.find(d => d.label && d.label.toLowerCase().includes("predicted"));
+      const lowerDs = cd.datasets.find(d => d.label && d.label.toLowerCase().includes("lower"));
+      const upperDs = cd.datasets.find(d => d.label && d.label.toLowerCase().includes("upper"));
+      if (predDs && predDs.data && predDs.data.length) {
+        chartParams += "&labels=" + encodeURIComponent(JSON.stringify(labels));
+        chartParams += "&vals=" + encodeURIComponent(JSON.stringify(predDs.data));
+        if (lowerDs && lowerDs.data) chartParams += "&lower=" + encodeURIComponent(JSON.stringify(lowerDs.data));
+        if (upperDs && upperDs.data) chartParams += "&upper=" + encodeURIComponent(JSON.stringify(upperDs.data));
+      }
+    }
+  } catch(e) { console.warn("Chart data extraction for report failed:", e); }
+
+  const reportUrl = `/api/v1/reports/view?lat=${lat}&lon=${lon}&horizon=${horizon}${chartParams}`;
   window.open(reportUrl, "_blank");
 }
 
