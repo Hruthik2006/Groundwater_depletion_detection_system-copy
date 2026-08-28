@@ -1332,35 +1332,48 @@ let currentChartHorizon = 12;
 async function setCustomChartHorizon(months, btnEl) {
   months = parseInt(months, 10);
   if (isNaN(months) || months < 1) return;
-  currentChartHorizon = months;
 
-  showPlot2Loading(`Solving SCP & Computing ${months}-Month Conformal Bounds...`);
+  // Clamp to the model's max supported horizon (36 steps)
+  const clampedMonths = Math.min(months, 36);
+  currentChartHorizon = clampedMonths;
 
+  // Sync all UI controls
   const inputEl = document.getElementById("customMonthInput");
-  if (inputEl) inputEl.value = months;
+  if (inputEl) inputEl.value = clampedMonths;
 
   const card1HVal = document.getElementById("inputHVal");
-  if (card1HVal) card1HVal.value = months;
+  if (card1HVal) card1HVal.value = clampedMonths;
 
   const hiddenH = document.getElementById("inputH");
-  if (hiddenH) hiddenH.value = months;
+  if (hiddenH) hiddenH.value = clampedMonths;
 
   const badgeEl = document.getElementById("chartHorizonBadge");
-  if (badgeEl) badgeEl.innerText = `${months}-Month Horizon`;
+  if (badgeEl) badgeEl.innerText = `${clampedMonths}-Month Horizon`;
 
   if (btnEl) {
     document.querySelectorAll(".btn-horizon-chip").forEach(b => b.classList.remove("active"));
     btnEl.classList.add("active");
   } else {
     document.querySelectorAll(".btn-horizon-chip").forEach(b => {
-      if (b.innerText === `${months}M`) b.classList.add("active");
+      if (b.innerText === `${clampedMonths}M`) b.classList.add("active");
       else b.classList.remove("active");
     });
   }
 
+  // Switch to conformal view if not already on it
+  if (currentPredictionGraphView !== "conformal") {
+    currentPredictionGraphView = "conformal";
+    const titleEl = document.getElementById("plot2Title");
+    const subEl = document.getElementById("plot2Sub");
+    if (titleEl) titleEl.innerText = "Piezometric Head Forecast & Split Conformal Bounds";
+    if (subEl) subEl.innerText = "Point location hydraulic head time series with 95% safety intervals";
+  }
+
+  showPlot2Loading(`Computing ${clampedMonths}-Month Conformal Forecast...`);
   try {
-    await runOptimization();
-    await fetchDrawdownForecast(months);
+    // Re-init chart for new horizon, then fetch data
+    initConformalChart();
+    await fetchDrawdownForecast(clampedMonths);
   } finally {
     hidePlot2Loading();
   }
