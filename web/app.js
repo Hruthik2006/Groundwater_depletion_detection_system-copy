@@ -1300,6 +1300,7 @@ async function validateAndSubmitDetails(e) {
   const mainLon = document.getElementById("inputLon");
   if (mainLat) mainLat.value = latNum.toFixed(2);
   if (mainLon) mainLon.value = lonNum.toFixed(2);
+  updateHeaderLocationDisplay(latNum, lonNum);
 
   const regionSelect = document.getElementById("regionPresetSelect");
   const regionLabelSpan = document.getElementById("regionPickerSelectedLabel");
@@ -1342,6 +1343,16 @@ async function validateAndSubmitDetails(e) {
 
   // Execute predictions and MPC optimization on dashboard
   await fetchUnifiedControl();
+}
+
+function updateHeaderLocationDisplay(lat, lon) {
+  const el = document.getElementById("headerLocationText");
+  if (!el) return;
+  const latVal = lat !== undefined ? parseFloat(lat) : (document.getElementById("inputLat") ? parseFloat(document.getElementById("inputLat").value) : 40.15);
+  const lonVal = lon !== undefined ? parseFloat(lon) : (document.getElementById("inputLon") ? parseFloat(document.getElementById("inputLon").value) : -88.25);
+  if (!isNaN(latVal) && !isNaN(lonVal)) {
+    el.innerText = `Lat: ${latVal.toFixed(2)}°, Lon: ${lonVal.toFixed(2)}°`;
+  }
 }
 
 let errorTimeoutId = null;
@@ -2474,8 +2485,10 @@ if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", () => {
     setupChoicePickerHoverHandlers();
     updateGEEStatusBadge();
+    updateHeaderLocationDisplay();
   });
 } else {
   setupChoicePickerHoverHandlers();
   updateGEEStatusBadge();
+  updateHeaderLocationDisplay();
 }

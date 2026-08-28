@@ -29,7 +29,7 @@
         <div class="fullscreen-footer-year">2026</div>
       </div>
       <div class="fullscreen-footer-subtitle">
-        For Capstone Project, AIML Department, DSATM, 2026
+        A Capstone Project, AIML Department, DSATM, 2026
       </div>
     </div>
     <div class="landing-content-bottom">
@@ -44,7 +44,8 @@
     </div>
 
     <div class="input-screen-body">
-      <div class="input-screen-form" style="display: flex; flex-direction: column; gap: 1.4rem; max-width: 420px; width: 100%;">
+      <div class="input-screen-form"
+        style="display: flex; flex-direction: column; gap: 1.4rem; max-width: 420px; width: 100%;">
         <!-- Hydrogeological region choice picker -->
         <div class="choice-picker-container" id="inputPageRegionPickerContainer">
           <button class="choice-picker-trigger" id="inputPageRegionBtn" style="font-size: 1.05rem;"
@@ -131,27 +132,6 @@
         <div id="inputScreenError"
           style="color: #ef4444; font-size: 0.95rem; font-weight: 500; display: none; margin-top: 0.5rem; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.25); padding: 8px 14px; border-radius: 8px; font-family: var(--font-family);">
         </div>
-
-        <!-- Dotted Horizontal Loading Bar & Progress State -->
-        <div id="inputScreenLoadingBar" class="dotted-loading-container hidden">
-          <div class="dotted-progress-track">
-            <div class="dotted-dot"></div>
-            <div class="dotted-dot"></div>
-            <div class="dotted-dot"></div>
-            <div class="dotted-dot"></div>
-            <div class="dotted-dot"></div>
-            <div class="dotted-dot"></div>
-            <div class="dotted-dot"></div>
-            <div class="dotted-dot"></div>
-            <div class="dotted-dot"></div>
-            <div class="dotted-dot"></div>
-            <div class="dotted-dot"></div>
-            <div class="dotted-dot"></div>
-          </div>
-          <div id="inputScreenLoadingText" class="dotted-loading-text">
-            Initializing satellite mascons &amp; spatial downscaling...
-          </div>
-        </div>
       </div>
 
       <div class="input-screen-map-panel">
@@ -160,7 +140,26 @@
     </div>
 
     <div class="landing-content-bottom">
-      <a href="#" id="btnInputScreenContinue" class="landing-proceed-btn" onclick="validateAndSubmitDetails(event)">Continue &gt;</a>
+      <a href="#" id="btnInputScreenContinue" class="landing-proceed-btn"
+        onclick="validateAndSubmitDetails(event)">Continue &gt;</a>
+    </div>
+
+    <!-- Dotted Horizontal Loading Bar & Progress State -->
+    <div id="inputScreenLoadingBar" class="dotted-loading-container hidden">
+      <div class="dotted-progress-track">
+        <div class="dotted-dot"></div>
+        <div class="dotted-dot"></div>
+        <div class="dotted-dot"></div>
+        <div class="dotted-dot"></div>
+        <div class="dotted-dot"></div>
+        <div class="dotted-dot"></div>
+        <div class="dotted-dot"></div>
+        <div class="dotted-dot"></div>
+        <div class="dotted-dot"></div>
+        <div class="dotted-dot"></div>
+        <div class="dotted-dot"></div>
+        <div class="dotted-dot"></div>
+      </div>
     </div>
   </div>
 
@@ -173,62 +172,39 @@
         <div class="header-brand" onclick="openLandingScreen()" style="cursor: pointer;"
           title="Click to view Landing Cover Screen">Satellite Enhanced Groundwater Prediction system</div>
         <div class="header-nav-right" style="display: flex; align-items: center; gap: 0.75rem;">
-          <!-- Interactive Location / Region Switcher in Top Header Bar -->
-          <div class="choice-picker-container" style="position: relative;">
-            <button id="headerLocationBadge" class="choice-picker-trigger" style="padding: 4px 8px; border-radius: 6px; font-size: 0.85rem; font-weight: 500; background: transparent; color: #E0E0E0; border: 1px solid rgba(255, 255, 255, 0.12); cursor: pointer; display: flex; align-items: center; gap: 5px; font-family: var(--font-family);" onclick="toggleChoicePicker('headerLocationMenu', 'headerLocationBadge')" title="Click to switch Aquifer Study Region or enter custom coordinates">
-              <span id="headerLocationText">Illinois Glacial Aquifer</span>
-              <span class="choice-picker-arrow">↘</span>
-            </button>
-            <div id="headerLocationMenu" class="choice-picker-menu" style="right: 0; left: auto; min-width: 280px; margin-top: 6px;">
-              <div class="choice-picker-group">
-                <div class="choice-picker-group-title">Study Aquifer Basin</div>
-                <div class="choice-picker-items">
-                  <div class="choice-picker-item" onclick="selectChoiceRegion('illinois', 'Illinois Glacial Aquifer')">
-                    <span class="choice-picker-label">Illinois Glacial Aquifer (USA)</span>
-                  </div>
-                  <div class="choice-picker-item" onclick="selectChoiceRegion('high_plains', 'High Plains / Ogallala Aquifer')">
-                    <span class="choice-picker-label">High Plains / Ogallala (USA)</span>
-                  </div>
-                  <div class="choice-picker-item" onclick="selectChoiceRegion('ganges', 'Indo-Gangetic Aquifer Basin')">
-                    <span class="choice-picker-label">Indo-Gangetic Basin (India)</span>
-                  </div>
-                  <div class="choice-picker-item" onclick="selectChoiceRegion('north_german', 'North German Aquifer Basin')">
-                    <span class="choice-picker-label">North German Basin (Europe)</span>
-                  </div>
-                </div>
-              </div>
-              <div class="choice-picker-group" style="border-top: 1px solid rgba(255,255,255,0.08); padding-top: 8px; margin-top: 8px;">
-                <div class="choice-picker-group-title">Custom Coordinates (Lat, Lon)</div>
-                <div style="display: flex; gap: 6px; padding: 4px 6px; align-items: center;">
-                  <input type="number" id="headerLatInput" placeholder="Lat" step="0.0001" style="width: 78px; background: #121212; border: 1px solid #444; border-radius: 4px; color: #fff; padding: 4px 6px; font-size: 0.75rem; font-family: 'JetBrains Mono', monospace;" value="40.1500" />
-                  <input type="number" id="headerLonInput" placeholder="Lon" step="0.0001" style="width: 78px; background: #121212; border: 1px solid #444; border-radius: 4px; color: #fff; padding: 4px 6px; font-size: 0.75rem; font-family: 'JetBrains Mono', monospace;" value="-88.2500" />
-                  <button onclick="applyHeaderCoordinates()" style="background: #e2e8f0; color: #0f172a; border: none; border-radius: 4px; padding: 4px 10px; font-size: 0.75rem; font-weight: 600; cursor: pointer;">Apply</button>
-                </div>
-              </div>
-            </div>
+          <!-- Input Location (Lat, Lon) Display in Top Header Bar -->
+          <div id="headerLocationBadge"
+            style="padding: 4px 8px; font-size: 0.85rem; font-weight: 500; color: #E0E0E0; font-family: var(--font-family); display: flex; align-items: center; user-select: none;">
+            <span id="headerLocationText">Lat: 40.15°, Lon: -88.25°</span>
           </div>
 
           <!-- Interactive Data Source Switcher in Top Header Bar -->
           <div class="choice-picker-container" style="position: relative;">
-            <button id="geeStatusBadge" class="gee-status-badge choice-picker-trigger" style="padding: 4px 12px; border-radius: 14px; font-size: 0.75rem; font-weight: 600; background: rgba(16, 185, 129, 0.15); color: #10B981; border: 1px solid rgba(16, 185, 129, 0.3); cursor: pointer; display: flex; align-items: center; gap: 5px;" onclick="toggleChoicePicker('headerSourceMenu', 'geeStatusBadge')" title="Click to switch Data Source Mode (Synthetic / Realtime GEE)">
+            <button id="geeStatusBadge" class="gee-status-badge choice-picker-trigger"
+              style="padding: 4px 12px; border-radius: 14px; font-size: 0.75rem; font-weight: 600; background: rgba(16, 185, 129, 0.15); color: #10B981; border: 1px solid rgba(16, 185, 129, 0.3); cursor: pointer; display: flex; align-items: center; gap: 5px;"
+              onclick="toggleChoicePicker('headerSourceMenu', 'geeStatusBadge')"
+              title="Click to switch Data Source Mode (Synthetic / Realtime GEE)">
               <span id="geeStatusText">GEE READY</span>
               <span class="choice-picker-arrow">↘</span>
             </button>
-            <div id="headerSourceMenu" class="choice-picker-menu" style="right: 0; left: auto; min-width: 240px; margin-top: 6px;">
+            <div id="headerSourceMenu" class="choice-picker-menu"
+              style="right: 0; left: auto; min-width: 240px; margin-top: 6px;">
               <div class="choice-picker-group">
                 <div class="choice-picker-group-title">Data Source Channel</div>
                 <div class="choice-picker-items">
-                  <div class="choice-picker-item" onclick="selectChoiceSource('synthetic', 'Synthetic Benchmark Engine')">
+                  <div class="choice-picker-item"
+                    onclick="selectChoiceSource('synthetic', 'Synthetic Benchmark Engine')">
                     <span class="choice-picker-label">Synthetic Benchmark Engine</span>
                   </div>
-                  <div class="choice-picker-item" onclick="selectChoiceSource('realtime', 'NASA EarthData &amp; GEE API')">
+                  <div class="choice-picker-item"
+                    onclick="selectChoiceSource('realtime', 'NASA EarthData &amp; GEE API')">
                     <span class="choice-picker-label">Realtime NASA EarthData &amp; GEE</span>
                   </div>
                 </div>
               </div>
             </div>
           </div>
-          
+
           <!--
           <div class="status-indicator-pill" style="display: flex; align-items: center; gap: 4px; padding: 3px 8px; background: rgba(255,255,255,0.05); border-radius: 10px;">
             <span id="dotRed" class="status-dot dot-red"></span>
@@ -236,10 +212,11 @@
           </div>
           -->
 
-          <a href="#" onclick="openInputScreen(event)" class="header-nav-link">New</a>
-          <a href="/admin" target="_blank" class="header-nav-link">Admin</a>
-          <a href="/help" target="_blank" class="header-nav-link">Help</a>
-          <button class="param-info-icon" onclick="openWebpageGuideModal()" title="How to Use Webpage Guide" style="background: none; border: none; color: #888; cursor: pointer; font-size: 1.1rem; padding: 0 4px;">ℹ</button>
+          <a href="#" onclick="openInputScreen(event)" class="header-nav-link">New&nbsp;</a>
+          <a href="/admin" target="_blank" class="header-nav-link">Admin&nbsp;</a>
+          <a href="/help" target="_blank" class="header-nav-link">Help&nbsp;</a>
+          <button class="param-info-icon" onclick="openWebpageGuideModal()" title="How to Use Webpage Guide"
+            style="background: none; border: none; color: #888; cursor: pointer; font-size: 1.1rem; padding: 0 4px;">ℹ</button>
         </div>
       </header>
 
@@ -267,7 +244,8 @@
           <div class="vertical-tab-strip" onclick="switchMainPanel('panelFramework')">
             <span class="tab-label">Parameters and Layer Framework status&nbsp;&nbsp;&nbsp;&nbsp;V</span>
             <div class="tab-menu-wrapper" onclick="event.stopPropagation()">
-              <button class="tab-menu-btn" onclick="toggleTabDropupMenu('menuFramework', event)" title="Parameters Tab Options">☰</button>
+              <button class="tab-menu-btn" onclick="toggleTabDropupMenu('menuFramework', event)"
+                title="Parameters Tab Options">☰</button>
               <div id="menuFramework" class="tab-dropup-menu">
                 <div class="tab-dropup-header">Parameters &amp; Framework Views</div>
                 <div class="tab-dropup-item" onclick="selectFrameworkView('params', event)">
@@ -282,7 +260,8 @@
           <div class="panel-content-wrapper">
             <div class="panel-grid-framework" id="panelGridFramework">
               <!-- Card 1: Framework Layer Status -->
-              <div class="card glass-card card-scrollable framework-card" id="cardFrameworkLayers" style="display: none;">
+              <div class="card glass-card card-scrollable framework-card" id="cardFrameworkLayers"
+                style="display: none;">
                 <div class="card-header">
                   <h3>Framework Layer Status</h3>
                 </div>
@@ -354,47 +333,57 @@
 
                 <div class="scp-params-form-list">
                   <div class="scp-param-row">
-                    <span class="scp-param-label">Planning Horizon (N Months):<button class="param-info-icon" title="Number of future monthly time steps optimized in rolling horizon MPC (1 to 120 months).">i</button></span>
-                    <input type="number" id="inputHVal" value="12" min="1" max="120" onchange="setCustomChartHorizon(this.value, null)">
+                    <span class="scp-param-label">Planning Horizon (N Months):<button class="param-info-icon"
+                        title="Number of future monthly time steps optimized in rolling horizon MPC (1 to 120 months).">i</button></span>
+                    <input type="number" id="inputHVal" value="12" min="1" max="120"
+                      onchange="setCustomChartHorizon(this.value, null)">
                   </div>
 
                   <div class="scp-param-row">
-                    <span class="scp-param-label">Min Water Table Limit (h_min):<button class="param-info-icon" title="Minimum allowable hydraulic head (meters MSL) before severe well depletion risk occurs. Default: 35.0m.">i</button></span>
+                    <span class="scp-param-label">Min Water Table Limit (h_min):<button class="param-info-icon"
+                        title="Minimum allowable hydraulic head (meters MSL) before severe well depletion risk occurs. Default: 35.0m.">i</button></span>
                     <input type="number" id="hMinInput" value="35.0" step="0.5">
                   </div>
 
                   <div class="scp-param-row">
-                    <span class="scp-param-label">Target Head Recovery (h_target):<button class="param-info-icon" title="Target steady-state water table recovery level (meters MSL) optimized by SCP. Default: 45.0m.">i</button></span>
+                    <span class="scp-param-label">Target Head Recovery (h_target):<button class="param-info-icon"
+                        title="Target steady-state water table recovery level (meters MSL) optimized by SCP. Default: 45.0m.">i</button></span>
                     <input type="number" id="hTargetInput" value="45.0" step="0.5">
                   </div>
 
                   <div class="scp-param-row">
-                    <span class="scp-param-label">Depletion Risk Tolerance (α):<button class="param-info-icon" title="Probability of violating safety threshold. 1 - α gives 95% conformal confidence coverage. Default: 0.05.">i</button></span>
+                    <span class="scp-param-label">Depletion Risk Tolerance (α):<button class="param-info-icon"
+                        title="Probability of violating safety threshold. 1 - α gives 95% conformal confidence coverage. Default: 0.05.">i</button></span>
                     <input type="number" id="inputAlpha" value="0.05" step="0.01" min="0.01" max="0.2">
                   </div>
 
                   <div class="scp-param-row">
-                    <span class="scp-param-label">Conformal Error Margin (q̂):<button class="param-info-icon" title="Empirical error quantile computed by Split Conformal Prediction for finite-sample safety margins.">i</button></span>
+                    <span class="scp-param-label">Conformal Error Margin (q̂):<button class="param-info-icon"
+                        title="Empirical error quantile computed by Split Conformal Prediction for finite-sample safety margins.">i</button></span>
                     <span id="qHatBadge" class="param-qhat-text">q̂ = 0.496m</span>
                   </div>
 
                   <div class="scp-param-row">
-                    <span class="scp-param-label">Max Pumping Capacity (E_max):<button class="param-info-icon" title="Maximum allowable monthly extraction rate per well (m³/month). Default: 100.0 m³/mo.">i</button></span>
+                    <span class="scp-param-label">Max Pumping Capacity (E_max):<button class="param-info-icon"
+                        title="Maximum allowable monthly extraction rate per well (m³/month). Default: 100.0 m³/mo.">i</button></span>
                     <input type="number" id="eMaxInput" value="100.0" step="5.0">
                   </div>
 
                   <div class="scp-param-row">
-                    <span class="scp-param-label">Pumping Cost Weight (γ_pump):<button class="param-info-icon" title="Objective cost penalty multiplier for groundwater pumping energy consumption. Default: 1.0.">i</button></span>
+                    <span class="scp-param-label">Pumping Cost Weight (γ_pump):<button class="param-info-icon"
+                        title="Objective cost penalty multiplier for groundwater pumping energy consumption. Default: 1.0.">i</button></span>
                     <input type="number" id="gammaPumpInput" value="1.0" step="0.1">
                   </div>
 
                   <div class="scp-param-row">
-                    <span class="scp-param-label">Violation Slack Penalty (σ_slack):<button class="param-info-icon" title="Penalty weight for soft slack variable incursions under extreme drought scenarios. Default: 100.0.">i</button></span>
+                    <span class="scp-param-label">Violation Slack Penalty (σ_slack):<button class="param-info-icon"
+                        title="Penalty weight for soft slack variable incursions under extreme drought scenarios. Default: 100.0.">i</button></span>
                     <input type="number" id="sigmaSlackInput" value="100.0" step="10.0">
                   </div>
 
                   <div class="scp-param-row">
-                    <span class="scp-param-label">Trust Region Radius (Δ_trust):<button class="param-info-icon" title="Sequential Convex Programming (SCP) linearization trust region radius. Default: 5.0m.">i</button></span>
+                    <span class="scp-param-label">Trust Region Radius (Δ_trust):<button class="param-info-icon"
+                        title="Sequential Convex Programming (SCP) linearization trust region radius. Default: 5.0m.">i</button></span>
                     <input type="number" id="deltaTrustInput" value="5.0" step="0.5">
                   </div>
 
@@ -406,8 +395,10 @@
 
                 <div class="scp-calculate-action-block">
                   <a href="#" onclick="runOptimization(); return false;" class="btn-calculate-link">Calculate &gt;</a>
-                  <div id="controlResultBox" class="result-box mt-2" style="margin-top: 0.6rem; background: transparent; border: none; padding: 0;">
-                    <small style="color: #15803d; font-weight: 500; font-size: 0.9rem;">✓ Optimal Quotas Solved. Conformal Bound Active.</small>
+                  <div id="controlResultBox" class="result-box mt-2"
+                    style="margin-top: 0.6rem; background: transparent; border: none; padding: 0;">
+                    <small style="color: #15803d; font-weight: 500; font-size: 0.9rem;">✓ Optimal Quotas Solved.
+                      Conformal Bound Active.</small>
                   </div>
                 </div>
               </div>
@@ -420,7 +411,8 @@
           <div class="vertical-tab-strip" onclick="switchMainPanel('panelMaps')">
             <span class="tab-label">Interactive map and 3D aquified model&nbsp;&nbsp;&nbsp;&nbsp;V</span>
             <div class="tab-menu-wrapper" onclick="event.stopPropagation()">
-              <button class="tab-menu-btn" onclick="toggleTabDropupMenu('menuMaps', event)" title="Map Tab Options">☰</button>
+              <button class="tab-menu-btn" onclick="toggleTabDropupMenu('menuMaps', event)"
+                title="Map Tab Options">☰</button>
               <div id="menuMaps" class="tab-dropup-menu">
                 <div class="tab-dropup-header">Map Panel Options</div>
                 <div class="tab-dropup-item" onclick="closeAllTabDropupMenus(event)">
@@ -479,7 +471,8 @@
           <div class="vertical-tab-strip" onclick="switchMainPanel('panelPredictions')">
             <span class="tab-label">Predictions&nbsp;&nbsp;&nbsp;&nbsp;V</span>
             <div class="tab-menu-wrapper" onclick="event.stopPropagation()">
-              <button class="tab-menu-btn" onclick="toggleTabDropupMenu('menuPredictions', event)" title="Predictions Tab Options">☰</button>
+              <button class="tab-menu-btn" onclick="toggleTabDropupMenu('menuPredictions', event)"
+                title="Predictions Tab Options">☰</button>
               <div id="menuPredictions" class="tab-dropup-menu">
                 <div class="tab-dropup-header">Prediction Scientific Charts</div>
                 <div class="tab-dropup-item" onclick="switchPredictionGraphView('conformal', event)">
@@ -539,7 +532,8 @@
                 <div class="card-header flex-between flex-wrap gap-2">
                   <div>
                     <h3 id="plot2Title">Piezometric Head Forecast &amp; Split Conformal Bounds</h3>
-                    <p class="card-sub" id="plot2Sub">Point location hydraulic head time series with 95% safety intervals</p>
+                    <p class="card-sub" id="plot2Sub">Point location hydraulic head time series with 95% safety
+                      intervals</p>
                   </div>
                   <div id="plot2HorizonControls" class="horizon-controls-wrap">
                     <div class="flex-align-center gap-1">
@@ -567,7 +561,7 @@
         <!-- Collapsed Workspace Notice (Visible when all panels are collapsed) -->
         <div id="collapsedWorkspaceNotice" class="collapsed-workspace-notice">
           <p class="collapsed-notice-text">
-            For more information click <a href="/help" target="_blank" class="collapsed-notice-link">here</a>
+            To find out, how to use, click the i button in the top right corner.
           </p>
         </div>
       </main>
@@ -582,7 +576,7 @@
         </div>
 
         <div class="fullscreen-footer-subtitle">
-          For Capstone Project, AIML Department, DSATM, 2026
+          A Capstone Project, AIML Department, DSATM, 2026
         </div>
 
         <div class="fullscreen-footer-credits">
@@ -655,13 +649,13 @@
   </div>
 
   <!-- Custom PDF Report Generator Modal -->
-  <div id="customReportModal" class="guide-modal-overlay hidden" onclick="if(event.target===this) closeCustomReportModal()">
+  <div id="customReportModal" class="guide-modal-overlay hidden"
+    onclick="if(event.target===this) closeCustomReportModal()">
     <div class="guide-modal-card glass-card report-modal-card">
       <div class="guide-modal-header">
         <div>
           <div style="display: flex; align-items: center; gap: 8px;">
-            <span style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); font-size: 0.72rem; padding: 3px 10px; border-radius: 12px; font-weight: 600; font-family: 'JetBrains Mono', monospace; letter-spacing: 0.3px;">PDF BUILDER</span>
-            <h3 style="margin: 0; font-size: 1.25rem; font-family: 'Outfit', sans-serif;">Custom PDF Report Generator</h3>
+            <h3 style="margin: 0; font-size: 1.25rem; font-family: 'Outfit', sans-serif;">PDF Report Generator</h3>
           </div>
           <p style="margin: 4px 0 0 0; font-size: 0.8rem; color: #94a3b8;">
             Select items to include in the generated PDF report and specify custom forecast prediction horizons.
@@ -673,7 +667,9 @@
       <div class="report-modal-body">
         <!-- Quick Action Bar -->
         <div class="report-modal-quickbar">
-          <div style="font-size: 0.78rem; color: #a1a1aa; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Report Sections &amp; Prediction Suites</div>
+          <div
+            style="font-size: 0.78rem; color: #a1a1aa; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">
+            Report Sections &amp; Prediction Suites</div>
           <div style="display: flex; gap: 8px;">
             <button class="btn-report-quick" onclick="toggleAllReportCheckboxes(true)">Select All</button>
             <button class="btn-report-quick" onclick="toggleAllReportCheckboxes(false)">Deselect All</button>
@@ -689,14 +685,16 @@
             <label class="report-checkbox-label">
               <input type="checkbox" id="rptSec_summary" class="round-radio-input" checked />
               <span class="round-radio-indicator"><span class="round-radio-dot"></span></span>
-              <span class="report-item-title">Executive Summary &amp; Basin Metadata (Lat/Lon Coordinates, Lithology, K, S_y, q̂)</span>
+              <span class="report-item-title">Executive Summary &amp; Basin Metadata (Lat/Lon Coordinates, Lithology, K,
+                S_y, q̂)</span>
             </label>
           </div>
           <div class="report-item-row">
             <label class="report-checkbox-label">
               <input type="checkbox" id="rptSec_stratigraphy" class="round-radio-input" checked />
               <span class="round-radio-indicator"><span class="round-radio-dot"></span></span>
-              <span class="report-item-title">Stratigraphic Hydrogeological Profile (Surface, Vadose Thickness, Water Table, Bedrock)</span>
+              <span class="report-item-title">Stratigraphic Hydrogeological Profile (Surface, Vadose Thickness, Water
+                Table, Bedrock)</span>
             </label>
           </div>
         </div>
@@ -712,7 +710,7 @@
             <label class="report-checkbox-label">
               <input type="checkbox" id="rptSec_conformal" class="round-radio-input" checked />
               <span class="round-radio-indicator"><span class="round-radio-dot"></span></span>
-              <span class="report-item-title">1. Piezometric Head Forecast &amp; Split Conformal Bounds</span>
+              <span class="report-item-title">Piezometric Head Forecast &amp; Split Conformal Bounds</span>
             </label>
             <div class="report-horizon-input-group">
               <span class="report-horizon-label">Horizon:</span>
@@ -726,7 +724,8 @@
             <label class="report-checkbox-label">
               <input type="checkbox" id="rptSec_lp30day" class="round-radio-input" checked />
               <span class="round-radio-indicator"><span class="round-radio-dot"></span></span>
-              <span class="report-item-title">2. Station CGWBHU2335 Worked 30-Day LP Extraction &amp; Head Trajectory</span>
+              <span class="report-item-title">Station CGWBHU2335 Worked 30-Day LP Extraction &amp; Head
+                Trajectory</span>
             </label>
           </div>
 
@@ -735,7 +734,7 @@
             <label class="report-checkbox-label">
               <input type="checkbox" id="rptSec_baselines" class="round-radio-input" checked />
               <span class="round-radio-indicator"><span class="round-radio-dot"></span></span>
-              <span class="report-item-title">3. Paper Baseline ML Models Performance Comparison (RF, SVR, LSTM - Table 3)</span>
+              <span class="report-item-title">Baseline ML Models Performance Comparison (RF, SVR, LSTM)</span>
             </label>
           </div>
 
@@ -744,7 +743,7 @@
             <label class="report-checkbox-label">
               <input type="checkbox" id="rptSec_ablation" class="round-radio-input" checked />
               <span class="round-radio-indicator"><span class="round-radio-dot"></span></span>
-              <span class="report-item-title">4. Historical Level Autoregressive Ablation Suite (Table 4)</span>
+              <span class="report-item-title">Historical Level Autoregressive Ablation Suite</span>
             </label>
           </div>
 
@@ -753,7 +752,7 @@
             <label class="report-checkbox-label">
               <input type="checkbox" id="rptSec_pumping" class="round-radio-input" checked />
               <span class="round-radio-indicator"><span class="round-radio-dot"></span></span>
-              <span class="report-item-title">5. Multi-Well SCP Chance-Constrained Pumping Quotas (CCMPC Optimizer)</span>
+              <span class="report-item-title">Multi-Well SCP Chance-Constrained Pumping Quotas (CCMPC Optimizer)</span>
             </label>
             <div class="report-horizon-input-group">
               <span class="report-horizon-label">Horizon:</span>
@@ -767,11 +766,12 @@
             <label class="report-checkbox-label">
               <input type="checkbox" id="rptSec_hydrograph" class="round-radio-input" checked />
               <span class="round-radio-indicator"><span class="round-radio-dot"></span></span>
-              <span class="report-item-title">6. Hydrograph: Rainfall, Vadose Delay Recharge &amp; Head Dynamics</span>
+              <span class="report-item-title">Hydrograph: Rainfall, Vadose Delay Recharge &amp; Head Dynamics</span>
             </label>
             <div class="report-horizon-input-group">
               <span class="report-horizon-label">Horizon:</span>
-              <input type="number" id="rptHorizon_hydrograph" class="report-horizon-input" min="1" max="60" value="24" />
+              <input type="number" id="rptHorizon_hydrograph" class="report-horizon-input" min="1" max="60"
+                value="24" />
               <span class="report-horizon-unit">Months</span>
             </div>
           </div>
@@ -786,29 +786,36 @@
             <label class="report-checkbox-label">
               <input type="checkbox" id="rptSec_math" class="round-radio-input" checked />
               <span class="round-radio-indicator"><span class="round-radio-dot"></span></span>
-              <span class="report-item-title">Mathematical &amp; Physics Formulations (Darcy PDE, Gamma Convolution, Conformal Quantile, SCP MPC)</span>
+              <span class="report-item-title">Mathematical &amp; Physics Formulations (Darcy PDE, Gamma Convolution,
+                Conformal Quantile, SCP MPC)</span>
             </label>
           </div>
           <div class="report-item-row">
             <label class="report-checkbox-label">
               <input type="checkbox" id="rptSec_table" class="round-radio-input" checked />
               <span class="round-radio-indicator"><span class="round-radio-dot"></span></span>
-              <span class="report-item-title">Full Tabular Numerical Projection Grid (Month-by-month Head, Recharge &amp; Bounds)</span>
+              <span class="report-item-title">Full Tabular Numerical Projection Grid (Month-by-month Head, Recharge
+                &amp; Bounds)</span>
             </label>
           </div>
           <div class="report-item-row">
             <label class="report-checkbox-label">
               <input type="checkbox" id="rptSec_recommendations" class="round-radio-input" checked />
               <span class="round-radio-indicator"><span class="round-radio-dot"></span></span>
-              <span class="report-item-title">Groundwater Depletion Risk Assessment &amp; Sustainable Pumping Recommendations</span>
+              <span class="report-item-title">Groundwater Depletion Risk Assessment &amp; Sustainable Pumping
+                Recommendations</span>
             </label>
           </div>
         </div>
       </div>
 
-      <div class="guide-modal-footer" style="display: flex; justify-content: space-between; align-items: center; padding-top: 14px; border-top: 1px solid rgba(255, 255, 255, 0.08);">
-        <button class="btn btn-secondary" style="padding: 8px 18px; border-radius: 8px;" onclick="closeCustomReportModal()">Cancel</button>
-        <button class="btn btn-primary" style="padding: 9px 24px; font-weight: 700; background: linear-gradient(135deg, #2563eb, #0284c7); border: 1px solid rgba(56, 189, 248, 0.4); border-radius: 8px; box-shadow: 0 4px 14px rgba(37,99,235,0.35);" onclick="generateCustomPdfReport()">📄 Generate &amp; Open PDF Report</button>
+      <div class="guide-modal-footer"
+        style="display: flex; justify-content: space-between; align-items: center; padding-top: 14px; border-top: 1px solid rgba(255, 255, 255, 0.08);">
+        <button class="btn btn-secondary" style="padding: 8px 18px; border-radius: 8px; color: #E0E0E0; background: rgba(255, 255, 255, 0.08);"
+          onclick="closeCustomReportModal()">Cancel</button>
+        <button class="btn btn-primary"
+          style="padding: 9px 24px; font-weight: 700; background: linear-gradient(135deg, #2563eb, #0284c7); border: 1px solid rgba(56, 189, 248, 0.4); border-radius: 8px; box-shadow: 0 4px 14px rgba(37,99,235,0.35);"
+          onclick="generateCustomPdfReport()">Generate &amp; Open PDF Report</button>
       </div>
     </div>
   </div>
@@ -869,7 +876,7 @@
           </div>
         </div>
 
-         <!--
+        <!--
         <div class="guide-step-card" style="border-left: 3px solid #10b981; background: rgba(16, 185, 129, 0.08);">
           <div class="guide-step-num" style="background: #10b981; color: #ffffff;">🔴🟢</div>
           <div class="guide-step-content">
@@ -879,7 +886,7 @@
           </div>
         </div>
         -->
-      
+
       </div>
 
       <div class="guide-modal-footer">
