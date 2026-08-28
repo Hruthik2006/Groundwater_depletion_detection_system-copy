@@ -34,8 +34,14 @@ function switchMainPanel(selectedId) {
         }, 150);
       } else if (id === "panelPredictions") {
         setTimeout(() => {
-          if (chartInstance) chartInstance.resize();
-        }, 150);
+          if (!chartInstance) {
+            // First time opening predictions panel - init chart and load data
+            initConformalChart();
+            fetchDrawdownForecast(currentChartHorizon || 12);
+          } else {
+            chartInstance.resize();
+          }
+        }, 200);
       }
     } else {
       el.classList.remove("panel-expanded");
@@ -329,6 +335,10 @@ function updateInputGlobeFromInputs() {
 }
 
 async function fetchUnifiedControl() {
+  // Ensure chart is initialized before any fetch
+  if (!chartInstance) {
+    initConformalChart();
+  }
   await predictPointLocation();
   await fetchDrawdownForecast();
   await runOptimization();
@@ -900,9 +910,12 @@ async function fetchSystemStatus() {
   try {
     const res = await fetch("/api/v1/status");
     const data = await res.json();
-    document.getElementById("systemStatusText").innerText = `System Operational (${data.data_mode.toUpperCase()})`;
-    document.getElementById("qHatBadge").innerText = `q̂ = ${data.conformal_q_hat.toFixed(2)}m`;
-    document.getElementById("dataModeSelect").value = data.data_mode;
+    const statusTextEl = document.getElementById("systemStatusText");
+    if (statusTextEl) statusTextEl.innerText = `System Operational (${data.data_mode.toUpperCase()})`;
+    const qHatEl = document.getElementById("qHatBadge");
+    if (qHatEl) qHatEl.innerText = `q̂ = ${data.conformal_q_hat.toFixed(2)}m`;
+    const modeSelectEl = document.getElementById("dataModeSelect");
+    if (modeSelectEl) modeSelectEl.value = data.data_mode;
   } catch (err) {
     console.error("Status error:", err);
   }
@@ -1353,8 +1366,26 @@ async function setCustomChartHorizon(months, btnEl) {
   }
 }
 
+function destroyExistingChart() {
+  if (typeof Chart !== "undefined") {
+    const existing = Chart.getChart("conformalChart");
+    if (existing) {
+      existing.destroy();
+    }
+  }
+  if (chartInstance) {
+    try {
+      chartInstance.destroy();
+    } catch (e) {}
+    chartInstance = null;
+  }
+}
+
 function initConformalChart() {
-  const ctx = document.getElementById("conformalChart").getContext("2d");
+  const canvasEl = document.getElementById("conformalChart");
+  if (!canvasEl) return;
+  destroyExistingChart();
+  const ctx = canvasEl.getContext("2d");
   chartInstance = new Chart(ctx, {
     type: "line",
     data: {
@@ -1479,7 +1510,14 @@ function applyCustomMonthInput() {
 }
 
 function updateChartData(predictedHeads, qHat, horizon) {
-  if (!chartInstance) return;
+  if (currentPredictionGraphView !== "conformal") {
+    return;
+  }
+
+  if (!chartInstance || !chartInstance.data || !chartInstance.data.datasets || chartInstance.data.datasets.length !== 4) {
+    console.warn("updateChartData: chart not ready (wrong type or missing), skipping.");
+    return;
+  }
 
   const actualHorizon = Math.min(horizon || 12, predictedHeads.length);
   const labels = Array.from({ length: actualHorizon }, (_, i) => `Month ${i+1}`);
@@ -1511,6 +1549,388 @@ function updateChartData(predictedHeads, qHat, horizon) {
   chartInstance.data.datasets[2].data = lower;
   chartInstance.data.datasets[3].data = Array(actualHorizon).fill(35.0);
   chartInstance.update();
+}
+
+let currentPredictionGraphView = "conformal";
+
+async function switchPredictionGraphView(viewType, e) {
+  if (e) {
+    e.stopPropagation();
+    e.preventDefault();
+  }
+  closeAllTabDropupMenus();
+  currentPredictionGraphView = viewType;
+
+  const titleEl = document.getElementById("plot2Title");
+  const subEl = document.getElementById("plot2Sub");
+
+  if (viewType === "conformal") {
+    if (titleEl) titleEl.innerText = "Piezometric Head Forecast & Split Conformal Bounds";
+    if (subEl) subEl.innerText = "Point location hydraulic head time series with 95% safety intervals";
+    // Always re-init the line chart (destroyExistingChart may have removed it)
+    initConformalChart();
+    fetchDrawdownForecast(currentChartHorizon || 12);
+  } else if (viewType === "lp_30day") {
+    if (titleEl) titleEl.innerText = "Station CGWBHU2335 Worked 30-Day LP Extraction & Head Trajectory";
+    if (subEl) subEl.innerText = "Daily extraction schedule (m/day) and water table trajectory (m) under s = -7.61m safety floor";
+    renderSingleStationLPChart();
+  } else if (viewType === "baselines") {
+    if (titleEl) titleEl.innerText = "Paper Baseline ML Models Performance (Table 3)";
+    if (subEl) subEl.innerText = "Held-out RMSE and MAE across Linear Regression, Random Forest, SVR, HGB, & LSTM";
+    renderPaperBaselinesChart();
+  } else if (viewType === "ablation") {
+    if (titleEl) titleEl.innerText = "Historical Level Autoregressive Ablation Suite (Table 4)";
+    if (subEl) subEl.innerText = "Comparison of full LSTM model vs. ablated model (level history zeroed out)";
+    renderAblationChart();
+  } else if (viewType === "pumping_quotas") {
+    if (titleEl) titleEl.innerText = "12-Month Multi-Well SCP CCMPC Pumping Quotas";
+    if (subEl) subEl.innerText = "Optimal monthly pumping allocation (m³/month) per well node";
+    renderPumpingQuotasChart();
+  } else if (viewType === "hydrograph") {
+    if (titleEl) titleEl.innerText = "Hydrograph: Rainfall, Vadose Delay Recharge & Head Dynamics";
+    if (subEl) subEl.innerText = "Precipitation, Gamma vadose delay effective recharge, and water table head";
+    renderHydrographChart();
+  }
+}
+
+async function renderSingleStationLPChart() {
+  showPlot2Loading("Solving Station CGWBHU2335 30-Day LP Optimization...");
+  try {
+    const res = await fetch("/api/v1/control/single_station_lp", { method: "POST" });
+    const data = await res.json();
+    if (!data.success) { console.error("LP solver failed:", data); return; }
+
+    destroyExistingChart();
+    const canvas = document.getElementById("conformalChart");
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+
+    const labels = Array.from({ length: 30 }, (_, i) => `Day ${i + 1}`);
+
+    chartInstance = new Chart(ctx, {
+      type: "bar",
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            type: "bar",
+            label: "Daily Pumping Allocation E_t (m/day)",
+            data: data.daily_extractions,
+            backgroundColor: "rgba(0, 242, 254, 0.6)",
+            borderColor: "#00f2fe",
+            borderWidth: 1,
+            yAxisID: "yPumping",
+          },
+          {
+            type: "line",
+            label: "Predicted Head Trajectory H(t) (m)",
+            data: data.head_trajectory.slice(1),
+            borderColor: "#4ade80",
+            backgroundColor: "rgba(74, 222, 128, 0.1)",
+            fill: false,
+            tension: 0.2,
+            yAxisID: "yHead",
+          },
+          {
+            type: "line",
+            label: "Safety Floor Limit s (-7.61m)",
+            data: Array(30).fill(data.safety_floor_m),
+            borderColor: "#ef4444",
+            borderDash: [4, 4],
+            borderWidth: 2,
+            pointRadius: 0,
+            yAxisID: "yHead",
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          yPumping: {
+            type: "linear",
+            position: "left",
+            title: { display: true, text: "Pumping Cap (m/day)", color: "#00f2fe" },
+            ticks: { color: "#94a3b8" },
+            grid: { color: "rgba(255, 255, 255, 0.05)" },
+          },
+          yHead: {
+            type: "linear",
+            position: "right",
+            title: { display: true, text: "Groundwater Head (m)", color: "#4ade80" },
+            ticks: { color: "#94a3b8" },
+            grid: { drawOnChartArea: false },
+          },
+          x: { ticks: { color: "#94a3b8" }, grid: { color: "rgba(255, 255, 255, 0.05)" } },
+        },
+        plugins: {
+          legend: { labels: { color: "#f0f4f8", font: { family: "Outfit" } } },
+        },
+      },
+    });
+  } catch (err) {
+    console.error("LP Chart error:", err);
+  } finally {
+    hidePlot2Loading();
+  }
+}
+
+async function renderPaperBaselinesChart() {
+  showPlot2Loading("Evaluating Paper ML Baseline Models (RF, SVR, HGB, LSTM)...");
+  try {
+    const res = await fetch("/api/v1/evaluation/paper_baselines");
+    const data = await res.json();
+    if (!data.baselines) { console.error("No baselines in response:", data); return; }
+
+    destroyExistingChart();
+    const canvas = document.getElementById("conformalChart");
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+
+    const modelNames = Object.keys(data.baselines);
+    const rmseValues = modelNames.map((m) => data.baselines[m].RMSE);
+    const maeValues = modelNames.map((m) => data.baselines[m].MAE);
+
+    chartInstance = new Chart(ctx, {
+      type: "bar",
+      data: {
+        labels: modelNames,
+        datasets: [
+          {
+            label: "RMSE Error (m)",
+            data: rmseValues,
+            backgroundColor: "rgba(0, 242, 254, 0.7)",
+            borderColor: "#00f2fe",
+            borderWidth: 1,
+          },
+          {
+            label: "MAE Error (m)",
+            data: maeValues,
+            backgroundColor: "rgba(168, 85, 247, 0.7)",
+            borderColor: "#a855f7",
+            borderWidth: 1,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: {
+            title: { display: true, text: "Error in Meters (m)", color: "#f0f4f8" },
+            ticks: { color: "#94a3b8" },
+            grid: { color: "rgba(255, 255, 255, 0.05)" },
+          },
+          x: { ticks: { color: "#94a3b8" }, grid: { color: "rgba(255, 255, 255, 0.05)" } },
+        },
+        plugins: {
+          legend: { labels: { color: "#f0f4f8", font: { family: "Outfit" } } },
+        },
+      },
+    });
+  } catch (err) {
+    console.error("Baselines chart error:", err);
+  } finally {
+    hidePlot2Loading();
+  }
+}
+
+async function renderAblationChart() {
+  showPlot2Loading("Running Autoregressive History Ablation Suite...");
+  try {
+    const res = await fetch("/api/v1/evaluation/ablation");
+    const data = await res.json();
+    if (!data.ablation) { console.error("No ablation in response:", data); return; }
+
+    destroyExistingChart();
+    const canvas = document.getElementById("conformalChart");
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+
+    const fullM = data.ablation.Full_Model_P_T_LevelHistory;
+    const ablM = data.ablation.Ablated_Model_LevelHistory_Removed;
+
+    chartInstance = new Chart(ctx, {
+      type: "bar",
+      data: {
+        labels: ["Full Model (P, T, Level H_t-1)", "Ablated Model (Level History Zeroed Out)"],
+        datasets: [
+          {
+            label: "RMSE (m)",
+            data: [fullM.RMSE, ablM.RMSE],
+            backgroundColor: ["rgba(74, 222, 128, 0.7)", "rgba(239, 68, 68, 0.7)"],
+            borderColor: ["#4ade80", "#ef4444"],
+            borderWidth: 1,
+          },
+          {
+            label: "MAE (m)",
+            data: [fullM.MAE, ablM.MAE],
+            backgroundColor: ["rgba(56, 189, 248, 0.7)", "rgba(249, 115, 22, 0.7)"],
+            borderColor: ["#38bdf8", "#f97316"],
+            borderWidth: 1,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: {
+            title: { display: true, text: "Error Magnitude (m)", color: "#f0f4f8" },
+            ticks: { color: "#94a3b8" },
+            grid: { color: "rgba(255, 255, 255, 0.05)" },
+          },
+          x: { ticks: { color: "#94a3b8" }, grid: { color: "rgba(255, 255, 255, 0.05)" } },
+        },
+        plugins: {
+          legend: { labels: { color: "#f0f4f8", font: { family: "Outfit" } } },
+        },
+      },
+    });
+  } catch (err) {
+    console.error("Ablation chart error:", err);
+  } finally {
+    hidePlot2Loading();
+  }
+}
+
+async function renderPumpingQuotasChart() {
+  showPlot2Loading("Fetching SCP CCMPC Multi-Well Pumping Quotas...");
+  try {
+    const res = await fetch("/api/v1/control/pumping_quotas", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ horizon: 12 }),
+    });
+    const data = await res.json();
+    if (!data.pumping_quotas) { console.error("No pumping_quotas in response:", data); return; }
+
+    destroyExistingChart();
+    const canvas = document.getElementById("conformalChart");
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+
+    const quotas = data.pumping_quotas;
+    const months = Array.from({ length: quotas.length }, (_, i) => `Month ${i + 1}`);
+    const datasets = [];
+    const numWells = quotas[0] ? Math.min(quotas[0].length, 6) : 0;
+    const colors = ["#00f2fe", "#4ade80", "#a855f7", "#f97316", "#eab308", "#ec4899"];
+
+    for (let w = 0; w < numWells; w++) {
+      datasets.push({
+        label: `Well-${w + 1}`,
+        data: quotas.map((q) => q[w]),
+        backgroundColor: colors[w % colors.length],
+      });
+    }
+
+    chartInstance = new Chart(ctx, {
+      type: "bar",
+      data: { labels: months, datasets: datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: {
+            stacked: true,
+            title: { display: true, text: "Pumping Quota (m³/month)", color: "#f0f4f8" },
+            ticks: { color: "#94a3b8" },
+            grid: { color: "rgba(255, 255, 255, 0.05)" },
+          },
+          x: { stacked: true, ticks: { color: "#94a3b8" }, grid: { color: "rgba(255, 255, 255, 0.05)" } },
+        },
+        plugins: {
+          legend: { labels: { color: "#f0f4f8", font: { family: "Outfit" } } },
+        },
+      },
+    });
+  } catch (err) {
+    console.error("Pumping quotas chart error:", err);
+  } finally {
+    hidePlot2Loading();
+  }
+}
+
+async function renderHydrographChart() {
+  const latVal = parseFloat(document.getElementById("inputLat").value) || 40.15;
+  const lonVal = parseFloat(document.getElementById("inputLon").value) || -88.25;
+
+  showPlot2Loading(`Building Hydrograph for (${latVal.toFixed(2)}°, ${lonVal.toFixed(2)}°)...`);
+  try {
+    const res = await fetch(`/api/v1/forecast/location_hydrograph?lat=${latVal}&lon=${lonVal}`);
+    const data = await res.json();
+    if (!data.precipitation_mm) { console.error("No precipitation_mm in response:", data); return; }
+
+    destroyExistingChart();
+    const canvas = document.getElementById("conformalChart");
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+
+    const timesteps = data.precipitation_mm.length;
+    const labels = Array.from({ length: timesteps }, (_, i) => `Month ${i + 1}`);
+    chartInstance = new Chart(ctx, {
+      type: "bar",
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            type: "bar",
+            label: "Precipitation P(t) (mm)",
+            data: data.precipitation_mm,
+            backgroundColor: "rgba(56, 189, 248, 0.5)",
+            borderColor: "#38bdf8",
+            yAxisID: "yRain",
+          },
+          {
+            type: "line",
+            label: "Vadose Delay Effective Recharge R_eff (mm)",
+            data: data.effective_recharge_mm,
+            borderColor: "#f97316",
+            backgroundColor: "rgba(249, 115, 22, 0.1)",
+            tension: 0.3,
+            yAxisID: "yRain",
+          },
+          {
+            type: "line",
+            label: "Water Table Head G(t) (m)",
+            data: data.water_table_head_m,
+            borderColor: "#4ade80",
+            backgroundColor: "rgba(74, 222, 128, 0.1)",
+            tension: 0.3,
+            yAxisID: "yHead",
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          yRain: {
+            type: "linear",
+            position: "left",
+            title: { display: true, text: "Recharge / Rainfall (mm)", color: "#38bdf8" },
+            ticks: { color: "#94a3b8" },
+            grid: { color: "rgba(255, 255, 255, 0.05)" },
+          },
+          yHead: {
+            type: "linear",
+            position: "right",
+            title: { display: true, text: "Water Table Head (m)", color: "#4ade80" },
+            ticks: { color: "#94a3b8" },
+            grid: { drawOnChartArea: false },
+          },
+          x: { ticks: { color: "#94a3b8" }, grid: { color: "rgba(255, 255, 255, 0.05)" } },
+        },
+        plugins: {
+          legend: { labels: { color: "#f0f4f8", font: { family: "Outfit" } } },
+        },
+      },
+    });
+  } catch (err) {
+    console.error("Hydrograph chart error:", err);
+  } finally {
+    hidePlot2Loading();
+  }
 }
 
 async function changeRegionPreset() {
@@ -1559,8 +1979,12 @@ async function predictPointLocation() {
     const data = await res.json();
 
     if (data.forecast) {
-      // 1. Update line chart with point location forecast
-      updateChartData(data.forecast.predicted_heads_m.map(v => [v]), data.conformal_q_hat, horizon);
+      // 1. Update active chart view with point location forecast
+      if (currentPredictionGraphView === "conformal") {
+        updateChartData(data.forecast.predicted_heads_m.map(v => [v]), data.conformal_q_hat, horizon);
+      } else {
+        switchPredictionGraphView(currentPredictionGraphView);
+      }
 
       // 2. Highlight target cell in 16x16 spatial grid heatmap and update 3D Aquifer WebGL Map
       if (data.raster_slice) {

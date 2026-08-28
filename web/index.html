@@ -159,10 +159,10 @@
                 <div class="choice-picker-group-title">Data Source Channel</div>
                 <div class="choice-picker-items">
                   <div class="choice-picker-item" onclick="selectChoiceSource('synthetic', 'Synthetic Benchmark Engine')">
-                    <span class="choice-picker-label">⚡ Synthetic Benchmark Engine</span>
+                    <span class="choice-picker-label">Synthetic Benchmark Engine</span>
                   </div>
                   <div class="choice-picker-item" onclick="selectChoiceSource('realtime', 'NASA EarthData &amp; GEE API')">
-                    <span class="choice-picker-label">🛰️ Realtime NASA EarthData &amp; GEE</span>
+                    <span class="choice-picker-label">Realtime NASA EarthData &amp; GEE</span>
                   </div>
                 </div>
               </div>
@@ -206,7 +206,7 @@
         <section id="panelFramework" class="accordion-panel panel-collapsed">
           <div class="vertical-tab-strip" onclick="switchMainPanel('panelFramework')">
             <span class="tab-label">Parameters and Layer Framework status&nbsp;&nbsp;&nbsp;&nbsp;V</span>
-            <div class="tab-menu-wrapper">
+            <div class="tab-menu-wrapper" onclick="event.stopPropagation()">
               <button class="tab-menu-btn" onclick="toggleTabDropupMenu('menuFramework', event)" title="Parameters Tab Options">☰</button>
               <div id="menuFramework" class="tab-dropup-menu">
                 <div class="tab-dropup-header">Parameters &amp; Framework Views</div>
@@ -359,12 +359,12 @@
         <section id="panelMaps" class="accordion-panel panel-collapsed">
           <div class="vertical-tab-strip" onclick="switchMainPanel('panelMaps')">
             <span class="tab-label">Interactive map and 3D aquified model&nbsp;&nbsp;&nbsp;&nbsp;V</span>
-            <div class="tab-menu-wrapper">
+            <div class="tab-menu-wrapper" onclick="event.stopPropagation()">
               <button class="tab-menu-btn" onclick="toggleTabDropupMenu('menuMaps', event)" title="Map Tab Options">☰</button>
               <div id="menuMaps" class="tab-dropup-menu">
                 <div class="tab-dropup-header">Map Panel Options</div>
                 <div class="tab-dropup-item" onclick="closeAllTabDropupMenus(event)">
-                  <span>🗺️ GIS &amp; 3D Aquifer Visualizer</span>
+                  <span>GIS &amp; 3D Aquifer Visualizer</span>
                 </div>
               </div>
             </div>
@@ -418,12 +418,31 @@
         <section id="panelPredictions" class="accordion-panel panel-collapsed">
           <div class="vertical-tab-strip" onclick="switchMainPanel('panelPredictions')">
             <span class="tab-label">Predictions&nbsp;&nbsp;&nbsp;&nbsp;V</span>
-            <div class="tab-menu-wrapper">
+            <div class="tab-menu-wrapper" onclick="event.stopPropagation()">
               <button class="tab-menu-btn" onclick="toggleTabDropupMenu('menuPredictions', event)" title="Predictions Tab Options">☰</button>
               <div id="menuPredictions" class="tab-dropup-menu">
-                <div class="tab-dropup-header">Prediction Tools</div>
+                <div class="tab-dropup-header">Prediction Scientific Charts</div>
+                <div class="tab-dropup-item" onclick="switchPredictionGraphView('conformal', event)">
+                  <span>Piezometric Head Forecast &amp; Split Conformal Bounds</span>
+                </div>
+                <div class="tab-dropup-item" onclick="switchPredictionGraphView('lp_30day', event)">
+                  <span>Station CGWBHU2335 Worked 30-Day LP</span>
+                </div>
+                <div class="tab-dropup-item" onclick="switchPredictionGraphView('baselines', event)">
+                  <span>Paper Baseline ML Models (RF, SVR, LSTM)</span>
+                </div>
+                <div class="tab-dropup-item" onclick="switchPredictionGraphView('ablation', event)">
+                  <span>Autoregressive Level History Ablation</span>
+                </div>
+                <div class="tab-dropup-item" onclick="switchPredictionGraphView('pumping_quotas', event)">
+                  <span>12-Month Multi-Well SCP Pumping Quotas</span>
+                </div>
+                <div class="tab-dropup-item" onclick="switchPredictionGraphView('hydrograph', event)">
+                  <span>Hydrograph (Rainfall, Vadose Delay &amp; Head)</span>
+                </div>
+                <div class="tab-dropup-header" style="margin-top: 6px;">Report Tools</div>
                 <div class="tab-dropup-item" onclick="triggerGenerateReportFromMenu(event)">
-                  <span>📄 Generate Location Report</span>
+                  <span>Generate Location Assessment Report</span>
                 </div>
               </div>
             </div>
@@ -459,8 +478,8 @@
 
                 <div class="card-header flex-between flex-wrap gap-2">
                   <div>
-                    <h3>Piezometric Head Forecast &amp; Split Conformal Bounds</h3>
-                    <p class="card-sub">Point location hydraulic head time series with 95% safety intervals</p>
+                    <h3 id="plot2Title">Piezometric Head Forecast &amp; Split Conformal Bounds</h3>
+                    <p class="card-sub" id="plot2Sub">Point location hydraulic head time series with 95% safety intervals</p>
                   </div>
                   <div class="horizon-controls-wrap">
                     <div class="flex-align-center gap-1">
@@ -651,7 +670,7 @@
     </div>
   </div>
 
-  <script src="/static/app.js"></script>
+  <script src="/static/app.js?v=20260828c"></script>
 </body>
 
 </html>

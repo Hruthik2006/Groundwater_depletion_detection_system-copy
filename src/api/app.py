@@ -850,6 +850,50 @@ def solve_single_station_lp():
     return res
 
 
+@app.get("/api/v1/evaluation/paper_baselines")
+def get_paper_baselines():
+    if getattr(state, "baseline_cache", None) is None:
+        from src.evaluation.benchmarks import FrameworkEvaluator
+        evaluator = FrameworkEvaluator()
+        state.baseline_cache = evaluator.fit_paper_baselines(state.dataset)
+    return {"status": "success", "baselines": state.baseline_cache}
+
+
+@app.get("/api/v1/evaluation/ablation")
+def get_autoregressive_ablation():
+    if getattr(state, "ablation_cache", None) is None:
+        from src.evaluation.benchmarks import FrameworkEvaluator
+        evaluator = FrameworkEvaluator()
+        state.ablation_cache = evaluator.run_autoregressive_ablation(state.dataset)
+    return {"status": "success", "ablation": state.ablation_cache}
+
+
+@app.get("/api/v1/forecast/location_hydrograph")
+def get_location_hydrograph(lat: float = 40.15, lon: float = -88.25):
+    meta = state.dataset["metadata"]
+    min_lon, min_lat, max_lon, max_lat = meta["bounds"]
+    H, W = meta["grid_shape"]
+
+    r = int(np.clip((max_lat - lat) / (max_lat - min_lat + 1e-8) * (H - 1), 0, H - 1))
+    c = int(np.clip((lon - min_lon) / (max_lon - min_lon + 1e-8) * (W - 1), 0, W - 1))
+
+    P_series = state.dataset["rasters_raw"]["P"][:, r, c].tolist()
+    ET_series = state.dataset["rasters_raw"]["ET"][:, r, c].tolist()
+    Reff_series = state.Reff[:, r, c].tolist() if state.Reff.ndim == 3 else state.Reff[:, 0].tolist()
+    G_spatial = state.dataset["wells"]["G_spatial_idw"][:, r, c].tolist()
+
+    return {
+        "lat": lat,
+        "lon": lon,
+        "grid_row": r,
+        "grid_col": c,
+        "precipitation_mm": P_series,
+        "evapotranspiration_mm": ET_series,
+        "effective_recharge_mm": Reff_series,
+        "water_table_head_m": G_spatial,
+    }
+
+
 # Admin API Endpoints
 @app.get("/api/v1/admin/telemetry")
 def get_admin_telemetry():
@@ -927,7 +971,11 @@ if os.path.exists(web_dir):
     @app.get("/")
     def serve_dashboard():
         index_path = os.path.join(web_dir, "index.html")
-        return FileResponse(index_path)
+        return FileResponse(index_path, headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0"
+        })
 
     @app.get("/admin")
     def serve_admin_dashboard():
