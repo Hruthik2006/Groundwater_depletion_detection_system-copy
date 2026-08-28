@@ -152,17 +152,30 @@ function initInputGlobe() {
   const container = document.getElementById("inputGlobe");
   if (!container || typeof THREE === "undefined") return;
 
+  const width = container.clientWidth > 0 ? container.clientWidth : 520;
+  const height = container.clientHeight > 0 ? container.clientHeight : 440;
+
+  if (globeRenderer) {
+    if (container.contains(globeRenderer.domElement)) {
+      resizeInputGlobe();
+      return;
+    }
+  }
+
   globeScene = new THREE.Scene();
-  globeCamera = new THREE.PerspectiveCamera(40, container.clientWidth / container.clientHeight, 0.1, 1000);
+  globeCamera = new THREE.PerspectiveCamera(40, width / height, 0.1, 1000);
   globeCamera.position.set(0, 0, 6.2);
   globeCamera.lookAt(0, 0, 0);
 
   globeRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
   globeRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  globeRenderer.setSize(container.clientWidth, container.clientHeight);
+  globeRenderer.setSize(width, height);
   globeRenderer.domElement.style.display = "block";
   globeRenderer.domElement.style.touchAction = "none";
   globeRenderer.domElement.style.userSelect = "none";
+  globeRenderer.domElement.style.width = "100%";
+  globeRenderer.domElement.style.height = "100%";
+  container.innerHTML = "";
   container.appendChild(globeRenderer.domElement);
 
   const ambient = new THREE.AmbientLight(0xffffff, 0.95);
@@ -251,8 +264,8 @@ function resizeInputGlobe() {
   if (!globeRenderer || !globeCamera) return;
   const container = document.getElementById("inputGlobe");
   if (!container) return;
-  const width = container.clientWidth || 480;
-  const height = container.clientHeight || 320;
+  const width = container.clientWidth > 0 ? container.clientWidth : 520;
+  const height = container.clientHeight > 0 ? container.clientHeight : 440;
   globeCamera.aspect = width / height;
   globeCamera.updateProjectionMatrix();
   globeRenderer.setSize(width, height);
@@ -292,9 +305,9 @@ function animateInputGlobe() {
 function updateInputGlobe(lat, lon, regionKey, isUserChoice = false) {
   if (!globeMesh || !regionOutlineGroup) return;
 
-  const regionInfo = inputScreenRegionDefaults[regionKey || selectedInputPageRegion] || inputScreenRegionDefaults[selectedInputPageRegion];
-  const latVal = typeof lat === "number" ? lat : (lat ? parseFloat(lat) : regionInfo.lat);
-  const lonVal = typeof lon === "number" ? lon : (lon ? parseFloat(lon) : regionInfo.lon);
+  const regionInfo = inputScreenRegionDefaults[regionKey || selectedInputPageRegion] || (selectedInputPageRegion ? inputScreenRegionDefaults[selectedInputPageRegion] : null);
+  const latVal = typeof lat === "number" ? lat : (lat ? parseFloat(lat) : (regionInfo ? regionInfo.lat : 40.15));
+  const lonVal = typeof lon === "number" ? lon : (lon ? parseFloat(lon) : (regionInfo ? regionInfo.lon : -88.25));
 
   if (isUserChoice) {
     isGlobeLocationSelected = true;
@@ -890,6 +903,11 @@ function updateMapMarker(lat, lon, popupText = null) {
   locationMarker.setLatLng([latNum, lonNum]);
   gisMap.setView([latNum, lonNum], 8);
 
+  const hLat = document.getElementById("headerLatInput");
+  const hLon = document.getElementById("headerLonInput");
+  if (hLat) hLat.value = latNum.toFixed(4);
+  if (hLon) hLon.value = lonNum.toFixed(4);
+
   const text = popupText || `<b>📍 Pinned Location</b><br>Lat: ${latNum.toFixed(4)}°, Lon: ${lonNum.toFixed(4)}°`;
   locationMarker.bindPopup(text).openPopup();
 }
@@ -1083,11 +1101,11 @@ const inputScreenRegionDefaults = {
   high_plains: { lat: 37.50, lon: -100.00, label: 'High Plains / Ogallala (USA)' },
   ganges: { lat: 26.50, lon: 79.50, label: 'Indo-Gangetic Basin (India)' },
   north_german: { lat: 53.00, lon: 11.00, label: 'North German Basin (Europe)' },
-  illinois: { lat: 40.15, lon: -88.25, label: 'Illinois Glacial Aquifer System (USA)' },
+  illinois: { lat: 40.15, lon: -88.25, label: 'Illinois Glacial Aquifer (USA)' },
 };
 
-let selectedInputPageRegion = "high_plains";
-let selectedInputPageSource = "synthetic";
+let selectedInputPageRegion = "";
+let selectedInputPageSource = "";
 
 function checkLandingState() {
   if (sessionStorage.getItem("hasProceeded") === "true") {
@@ -1118,7 +1136,13 @@ function openInputScreen(e) {
     inputScreen.style.display = "flex";
     inputScreen.classList.remove("hidden");
   }
-  updateInputGlobeFromInputs();
+  if (!globeRenderer) {
+    initInputGlobe();
+  }
+  setTimeout(() => {
+    resizeInputGlobe();
+    updateInputGlobeFromInputs();
+  }, 50);
 }
 
 function openLandingScreen() {
@@ -1137,7 +1161,6 @@ function selectInputPageRegion(key, labelText) {
   const labelEl = document.getElementById("inputPageRegionLabel");
   if (labelEl) labelEl.innerText = labelText;
 
-  // Auto-fill latitude/longitude if empty or default
   const regionDefaults = {
     high_plains: { lat: 37.50, lon: -100.00 },
     ganges: { lat: 26.50, lon: 79.50 },
@@ -1152,6 +1175,12 @@ function selectInputPageRegion(key, labelText) {
     updateInputGlobe(regionDefaults[key].lat, regionDefaults[key].lon, key, true);
   }
   closeAllChoicePickers();
+  // Clear any existing validation error once user makes a selection
+  const errEl = document.getElementById("inputScreenError");
+  if (errEl) {
+    errEl.style.display = "none";
+    errEl.innerText = "";
+  }
 }
 
 function selectInputPageSource(key, labelText) {
@@ -1159,6 +1188,12 @@ function selectInputPageSource(key, labelText) {
   const labelEl = document.getElementById("inputPageSourceLabel");
   if (labelEl) labelEl.innerText = labelText;
   closeAllChoicePickers();
+  // Clear any existing validation error once user makes a selection
+  const errEl = document.getElementById("inputScreenError");
+  if (errEl) {
+    errEl.style.display = "none";
+    errEl.innerText = "";
+  }
 }
 
 async function validateAndSubmitDetails(e) {
@@ -1167,93 +1202,85 @@ async function validateAndSubmitDetails(e) {
   const latInput = document.getElementById("inputScreenLat");
   const lonInput = document.getElementById("inputScreenLon");
   const errEl = document.getElementById("inputScreenError");
+  const loadingBar = document.getElementById("inputScreenLoadingBar");
+  const loadingText = document.getElementById("inputScreenLoadingText");
+  const continueBtn = document.getElementById("btnInputScreenContinue");
 
   let latVal = latInput ? latInput.value.trim() : "";
   let lonVal = lonInput ? lonInput.value.trim() : "";
-
-  const regionDefaults = {
-    high_plains: { lat: 37.50, lon: -100.00 },
-    ganges: { lat: 26.50, lon: 79.50 },
-    north_german: { lat: 53.00, lon: 11.00 },
-    illinois: { lat: 40.15, lon: -88.25 },
-  };
-
-  // If region chosen but lat/lon empty, use region defaults
-  if ((!latVal || !lonVal) && selectedInputPageRegion && regionDefaults[selectedInputPageRegion]) {
-    if (!latVal) {
-      latVal = regionDefaults[selectedInputPageRegion].lat.toFixed(2);
-      if (latInput) latInput.value = latVal;
-    }
-    if (!lonVal) {
-      lonVal = regionDefaults[selectedInputPageRegion].lon.toFixed(2);
-      if (lonInput) lonInput.value = lonVal;
-    }
-  }
 
   if (errEl) {
     errEl.style.display = "none";
     errEl.innerText = "";
   }
 
-  // 1. Validate numeric Latitude & Longitude
+  // 1. Validate Hydrogeological Region selection
+  if (!selectedInputPageRegion) {
+    showInputScreenError("Please select a Hydrogeological Region.");
+    const regionBtn = document.getElementById("inputPageRegionBtn");
+    if (regionBtn) regionBtn.focus();
+    return;
+  }
+
+  // 2. Validate numeric Latitude
   if (!latVal || isNaN(parseFloat(latVal))) {
-    showInputScreenError("Please select a region or enter a valid numeric Latitude (e.g. 40.15).");
+    showInputScreenError("Please enter a valid numeric Latitude (e.g. 40.15).");
     if (latInput) latInput.focus();
     return;
   }
 
   const latNum = parseFloat(latVal);
   if (latNum < -90 || latNum > 90) {
-    showInputScreenError("Latitude must be between -90° and +90°.");
+    showInputScreenError("Latitude must be between -90.0° and +90.0°.");
     if (latInput) latInput.focus();
     return;
   }
 
+  // 3. Validate numeric Longitude
   if (!lonVal || isNaN(parseFloat(lonVal))) {
-    showInputScreenError("Please select a region or enter a valid numeric Longitude (e.g. -88.25).");
+    showInputScreenError("Please enter a valid numeric Longitude (e.g. -88.25).");
     if (lonInput) lonInput.focus();
     return;
   }
 
   const lonNum = parseFloat(lonVal);
   if (lonNum < -180 || lonNum > 180) {
-    showInputScreenError("Longitude must be between -180° and +180°.");
+    showInputScreenError("Longitude must be between -180.0° and +180.0°.");
     if (lonInput) lonInput.focus();
     return;
   }
 
-  // 2. Sync entered details into main dashboard controls
-  const mainLat = document.getElementById("inputLat");
-  const mainLon = document.getElementById("inputLon");
-  if (mainLat) mainLat.value = latNum.toFixed(2);
-  if (mainLon) mainLon.value = lonNum.toFixed(2);
-
-  if (selectedInputPageRegion) {
-    const regionSelect = document.getElementById("regionPresetSelect");
-    const regionLabelSpan = document.getElementById("regionPickerSelectedLabel");
-    if (regionSelect) regionSelect.value = selectedInputPageRegion;
-    if (regionLabelSpan) {
-      const regionNames = {
-        high_plains: "High Plains / Ogallala (USA)",
-        north_german: "North German Basin (Europe)",
-        ganges: "Indo-Gangetic Basin (India)",
-        illinois: "Illinois Glacial Aquifer System (USA)",
-      };
-      regionLabelSpan.innerText = regionNames[selectedInputPageRegion] || "Hydrogeological region";
-    }
-
-    try {
-      await fetch("/api/v1/config/location", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ region_key: selectedInputPageRegion }),
-      });
-    } catch (err) {
-      console.warn("Region config error:", err);
-    }
+  // 4. Validate Data Source selection
+  if (!selectedInputPageSource) {
+    showInputScreenError("Please select a Data Source (NASA EarthData & GEE API or Synthetic Engine).");
+    const sourceBtn = document.getElementById("inputPageSourceBtn");
+    if (sourceBtn) sourceBtn.focus();
+    return;
   }
 
-  if (selectedInputPageSource) {
+  // 5. Display Animated Dotted Loading Bar
+  if (loadingBar) {
+    loadingBar.classList.remove("hidden");
+    loadingBar.style.display = "flex";
+  }
+  if (loadingText) {
+    loadingText.innerText = "Ingesting GRACE-FO satellite mascons & downscaling...";
+  }
+  if (continueBtn) {
+    continueBtn.style.pointerEvents = "none";
+    continueBtn.style.opacity = "0.5";
+  }
+
+  // 6. Sync configuration to backend API with animated progress steps
+  try {
+    if (loadingText) loadingText.innerText = `Configuring region: ${selectedInputPageRegion}...`;
+    await fetch("/api/v1/config/location", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ region_key: selectedInputPageRegion }),
+    });
+
+    if (loadingText) loadingText.innerText = `Connecting data channel (${selectedInputPageSource})...`;
     const sourceSelect = document.getElementById("dataSourceSelect");
     const sourceLabelSpan = document.getElementById("sourcePickerSelectedLabel");
     if (sourceSelect) sourceSelect.value = selectedInputPageSource;
@@ -1261,6 +1288,30 @@ async function validateAndSubmitDetails(e) {
       sourceLabelSpan.innerText = selectedInputPageSource === "realtime" ? "NASA EarthData & GEE API" : "Synthetic Benchmark Engine";
     }
     await setDataSourceMode(selectedInputPageSource);
+
+    if (loadingText) loadingText.innerText = "Calibrating vadose delay & conformal surrogates...";
+    await new Promise(r => setTimeout(r, 450));
+  } catch (err) {
+    console.warn("Input sync error:", err);
+  }
+
+  // 7. Sync entered details into main dashboard controls
+  const mainLat = document.getElementById("inputLat");
+  const mainLon = document.getElementById("inputLon");
+  if (mainLat) mainLat.value = latNum.toFixed(2);
+  if (mainLon) mainLon.value = lonNum.toFixed(2);
+
+  const regionSelect = document.getElementById("regionPresetSelect");
+  const regionLabelSpan = document.getElementById("regionPickerSelectedLabel");
+  if (regionSelect) regionSelect.value = selectedInputPageRegion;
+  if (regionLabelSpan) {
+    const regionNames = {
+      high_plains: "High Plains / Ogallala (USA)",
+      north_german: "North German Basin (Europe)",
+      ganges: "Indo-Gangetic Basin (India)",
+      illinois: "Illinois Glacial Aquifer (USA)",
+    };
+    regionLabelSpan.innerText = regionNames[selectedInputPageRegion] || "Hydrogeological region";
   }
 
   // Position GIS Map and Marker to user's specified lat/lon
@@ -1271,13 +1322,21 @@ async function validateAndSubmitDetails(e) {
   }
   updateInputGlobe(latNum, lonNum, selectedInputPageRegion);
 
-  // 3. Save session state & transition to Dashboard
+  // 8. Save session state & transition to Dashboard
   sessionStorage.setItem("hasProceeded", "true");
   const inputScreen = document.getElementById("inputScreen");
   if (inputScreen) {
     inputScreen.classList.add("hidden");
     setTimeout(() => {
       inputScreen.style.display = "none";
+      if (loadingBar) {
+        loadingBar.classList.add("hidden");
+        loadingBar.style.display = "none";
+      }
+      if (continueBtn) {
+        continueBtn.style.pointerEvents = "auto";
+        continueBtn.style.opacity = "1";
+      }
     }, 400);
   }
 
@@ -1333,8 +1392,7 @@ async function setCustomChartHorizon(months, btnEl) {
   months = parseInt(months, 10);
   if (isNaN(months) || months < 1) return;
 
-  // Clamp to the model's max supported horizon (36 steps)
-  const clampedMonths = Math.min(months, 36);
+  const clampedMonths = Math.min(Math.max(1, months), 120);
   currentChartHorizon = clampedMonths;
 
   // Sync all UI controls
@@ -1360,22 +1418,22 @@ async function setCustomChartHorizon(months, btnEl) {
     });
   }
 
-  // Switch to conformal view if not already on it
-  if (currentPredictionGraphView !== "conformal") {
-    currentPredictionGraphView = "conformal";
-    const titleEl = document.getElementById("plot2Title");
-    const subEl = document.getElementById("plot2Sub");
-    if (titleEl) titleEl.innerText = "Piezometric Head Forecast & Split Conformal Bounds";
-    if (subEl) subEl.innerText = "Point location hydraulic head time series with 95% safety intervals";
-  }
+  // Update background spatial rasters and 3D maps for the new horizon
+  fetchDrawdownForecast(clampedMonths);
 
-  showPlot2Loading(`Computing ${clampedMonths}-Month Conformal Forecast...`);
-  try {
-    // Re-init chart for new horizon, then fetch data
-    initConformalChart();
-    await fetchDrawdownForecast(clampedMonths);
-  } finally {
-    hidePlot2Loading();
+  // Re-render the active graph view without forcing back to conformal
+  if (currentPredictionGraphView === "conformal") {
+    showPlot2Loading(`Computing ${clampedMonths}-Month Conformal Forecast...`);
+    try {
+      initConformalChart(clampedMonths);
+      await fetchDrawdownForecast(clampedMonths);
+    } finally {
+      hidePlot2Loading();
+    }
+  } else if (currentPredictionGraphView === "pumping_quotas") {
+    await renderPumpingQuotasChart();
+  } else if (currentPredictionGraphView === "hydrograph") {
+    await renderHydrographChart();
   }
 }
 
@@ -1394,15 +1452,16 @@ function destroyExistingChart() {
   }
 }
 
-function initConformalChart() {
+function initConformalChart(horizon = 12) {
   const canvasEl = document.getElementById("conformalChart");
   if (!canvasEl) return;
   destroyExistingChart();
+  const h = horizon || currentChartHorizon || 12;
   const ctx = canvasEl.getContext("2d");
   chartInstance = new Chart(ctx, {
     type: "line",
     data: {
-      labels: Array.from({ length: 12 }, (_, i) => `Month ${i+1}`),
+      labels: Array.from({ length: h }, (_, i) => `Month ${i+1}`),
       datasets: [
         {
           label: "Conformal Upper Bound (G_pred + q̂)",
@@ -1428,7 +1487,7 @@ function initConformalChart() {
         },
         {
           label: "Critical Head Limit h_min (35m)",
-          data: Array(12).fill(35.0),
+          data: Array(h).fill(35.0),
           borderColor: "#ef4444",
           borderWidth: 2,
           pointRadius: 0,
@@ -1527,12 +1586,17 @@ function updateChartData(predictedHeads, qHat, horizon) {
     return;
   }
 
+  const h = horizon || currentChartHorizon || (predictedHeads ? predictedHeads.length : 12);
+  if (!chartInstance || !chartInstance.data || !chartInstance.data.datasets || chartInstance.data.datasets.length !== 4 || (chartInstance.data.labels && chartInstance.data.labels.length !== h)) {
+    initConformalChart(h);
+  }
+
   if (!chartInstance || !chartInstance.data || !chartInstance.data.datasets || chartInstance.data.datasets.length !== 4) {
-    console.warn("updateChartData: chart not ready (wrong type or missing), skipping.");
+    console.warn("updateChartData: chart not ready, skipping.");
     return;
   }
 
-  const actualHorizon = Math.min(horizon || 12, predictedHeads.length);
+  const actualHorizon = Math.min(h, predictedHeads.length);
   const labels = Array.from({ length: actualHorizon }, (_, i) => `Month ${i+1}`);
 
   const meanNominal = [];
@@ -1576,12 +1640,18 @@ async function switchPredictionGraphView(viewType, e) {
 
   const titleEl = document.getElementById("plot2Title");
   const subEl = document.getElementById("plot2Sub");
+  const horizonControlsEl = document.getElementById("plot2HorizonControls") || document.querySelector(".horizon-controls-wrap");
+
+  // Show horizon controls only for views that support multi-month custom horizons
+  const horizonSupportedViews = ["conformal", "pumping_quotas", "hydrograph"];
+  if (horizonControlsEl) {
+    horizonControlsEl.style.display = horizonSupportedViews.includes(viewType) ? "flex" : "none";
+  }
 
   if (viewType === "conformal") {
     if (titleEl) titleEl.innerText = "Piezometric Head Forecast & Split Conformal Bounds";
     if (subEl) subEl.innerText = "Point location hydraulic head time series with 95% safety intervals";
-    // Always re-init the line chart (destroyExistingChart may have removed it)
-    initConformalChart();
+    initConformalChart(currentChartHorizon || 12);
     fetchDrawdownForecast(currentChartHorizon || 12);
   } else if (viewType === "lp_30day") {
     if (titleEl) titleEl.innerText = "Station CGWBHU2335 Worked 30-Day LP Extraction & Head Trajectory";
@@ -1596,11 +1666,11 @@ async function switchPredictionGraphView(viewType, e) {
     if (subEl) subEl.innerText = "Comparison of full LSTM model vs. ablated model (level history zeroed out)";
     renderAblationChart();
   } else if (viewType === "pumping_quotas") {
-    if (titleEl) titleEl.innerText = "12-Month Multi-Well SCP CCMPC Pumping Quotas";
+    if (titleEl) titleEl.innerText = `${currentChartHorizon || 12}-Month Multi-Well SCP CCMPC Pumping Quotas`;
     if (subEl) subEl.innerText = "Optimal monthly pumping allocation (m³/month) per well node";
     renderPumpingQuotasChart();
   } else if (viewType === "hydrograph") {
-    if (titleEl) titleEl.innerText = "Hydrograph: Rainfall, Vadose Delay Recharge & Head Dynamics";
+    if (titleEl) titleEl.innerText = `${currentChartHorizon || 12}-Month Hydrograph: Rainfall, Vadose Delay Recharge & Head Dynamics`;
     if (subEl) subEl.innerText = "Precipitation, Gamma vadose delay effective recharge, and water table head";
     renderHydrographChart();
   }
@@ -1808,12 +1878,16 @@ async function renderAblationChart() {
 }
 
 async function renderPumpingQuotasChart() {
-  showPlot2Loading("Fetching SCP CCMPC Multi-Well Pumping Quotas...");
+  const horizon = currentChartHorizon || 12;
+  const titleEl = document.getElementById("plot2Title");
+  if (titleEl) titleEl.innerText = `${horizon}-Month Multi-Well SCP CCMPC Pumping Quotas`;
+
+  showPlot2Loading(`Fetching SCP CCMPC Multi-Well Pumping Quotas (${horizon} Months)...`);
   try {
     const res = await fetch("/api/v1/control/pumping_quotas", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ horizon: 12 }),
+      body: JSON.stringify({ horizon: horizon }),
     });
     const data = await res.json();
     if (!data.pumping_quotas) { console.error("No pumping_quotas in response:", data); return; }
@@ -1865,12 +1939,16 @@ async function renderPumpingQuotasChart() {
 }
 
 async function renderHydrographChart() {
-  const latVal = parseFloat(document.getElementById("inputLat").value) || 40.15;
-  const lonVal = parseFloat(document.getElementById("inputLon").value) || -88.25;
+  const latVal = parseFloat(document.getElementById("inputLat") ? document.getElementById("inputLat").value : 40.15) || 40.15;
+  const lonVal = parseFloat(document.getElementById("inputLon") ? document.getElementById("inputLon").value : -88.25) || -88.25;
+  const horizon = currentChartHorizon || 12;
 
-  showPlot2Loading(`Building Hydrograph for (${latVal.toFixed(2)}°, ${lonVal.toFixed(2)}°)...`);
+  const titleEl = document.getElementById("plot2Title");
+  if (titleEl) titleEl.innerText = `${horizon}-Month Hydrograph: Rainfall, Vadose Delay Recharge & Head Dynamics`;
+
+  showPlot2Loading(`Building ${horizon}-Month Hydrograph for (${latVal.toFixed(2)}°, ${lonVal.toFixed(2)}°)...`);
   try {
-    const res = await fetch(`/api/v1/forecast/location_hydrograph?lat=${latVal}&lon=${lonVal}`);
+    const res = await fetch(`/api/v1/forecast/location_hydrograph?lat=${latVal}&lon=${lonVal}&horizon=${horizon}`);
     const data = await res.json();
     if (!data.precipitation_mm) { console.error("No precipitation_mm in response:", data); return; }
 
@@ -1879,8 +1957,33 @@ async function renderHydrographChart() {
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
 
-    const timesteps = data.precipitation_mm.length;
+    let prec = Array.isArray(data.precipitation_mm) ? data.precipitation_mm : [];
+    let reff = Array.isArray(data.effective_recharge_mm) ? data.effective_recharge_mm : [];
+    let head = Array.isArray(data.water_table_head_m) ? data.water_table_head_m : [];
+
+    // Ensure array length strictly matches the requested horizon N
+    if (prec.length !== horizon) {
+      if (prec.length > horizon) {
+        prec = prec.slice(0, horizon);
+        reff = reff.slice(0, horizon);
+        head = head.slice(0, horizon);
+      } else if (prec.length > 0 && prec.length < horizon) {
+        const origLen = prec.length;
+        const newPrec = [], newReff = [], newHead = [];
+        for (let i = 0; i < horizon; i++) {
+          newPrec.push(prec[i % origLen]);
+          newReff.push(reff[i % origLen]);
+          newHead.push(head[i % origLen] - 0.01 * Math.floor(i / origLen));
+        }
+        prec = newPrec;
+        reff = newReff;
+        head = newHead;
+      }
+    }
+
+    const timesteps = prec.length || horizon;
     const labels = Array.from({ length: timesteps }, (_, i) => `Month ${i + 1}`);
+
     chartInstance = new Chart(ctx, {
       type: "bar",
       data: {
@@ -1889,7 +1992,7 @@ async function renderHydrographChart() {
           {
             type: "bar",
             label: "Precipitation P(t) (mm)",
-            data: data.precipitation_mm,
+            data: prec,
             backgroundColor: "rgba(56, 189, 248, 0.5)",
             borderColor: "#38bdf8",
             yAxisID: "yRain",
@@ -1897,7 +2000,7 @@ async function renderHydrographChart() {
           {
             type: "line",
             label: "Vadose Delay Effective Recharge R_eff (mm)",
-            data: data.effective_recharge_mm,
+            data: reff,
             borderColor: "#f97316",
             backgroundColor: "rgba(249, 115, 22, 0.1)",
             tension: 0.3,
@@ -1906,7 +2009,7 @@ async function renderHydrographChart() {
           {
             type: "line",
             label: "Water Table Head G(t) (m)",
-            data: data.water_table_head_m,
+            data: head,
             borderColor: "#4ade80",
             backgroundColor: "rgba(74, 222, 128, 0.1)",
             tension: 0.3,
@@ -1932,7 +2035,15 @@ async function renderHydrographChart() {
             ticks: { color: "#94a3b8" },
             grid: { drawOnChartArea: false },
           },
-          x: { ticks: { color: "#94a3b8" }, grid: { color: "rgba(255, 255, 255, 0.05)" } },
+          x: {
+            ticks: {
+              color: "#94a3b8",
+              maxRotation: horizon > 24 ? 45 : 0,
+              autoSkip: horizon > 18,
+              maxTicksLimit: Math.min(horizon, 24)
+            },
+            grid: { color: "rgba(255, 255, 255, 0.05)" }
+          },
         },
         plugins: {
           legend: { labels: { color: "#f0f4f8", font: { family: "Outfit" } } },
@@ -1946,8 +2057,41 @@ async function renderHydrographChart() {
   }
 }
 
+async function fetchLocationPredict(lat, lon, horizon) {
+  const h = horizon || currentChartHorizon || 12;
+  const latVal = (lat !== undefined && lat !== null) ? parseFloat(lat) : (parseFloat(document.getElementById("inputLat")?.value) || 40.15);
+  const lonVal = (lon !== undefined && lon !== null) ? parseFloat(lon) : (parseFloat(document.getElementById("inputLon")?.value) || -88.25);
+  
+  if (document.getElementById("inputLat")) document.getElementById("inputLat").value = latVal.toFixed(4);
+  if (document.getElementById("inputLon")) document.getElementById("inputLon").value = lonVal.toFixed(4);
+  if (document.getElementById("inputH")) document.getElementById("inputH").value = h;
+  if (document.getElementById("inputHVal")) document.getElementById("inputHVal").value = h;
+
+  try {
+    const res = await fetch("/api/v1/forecast/location_predict", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lat: latVal, lon: lonVal, horizon: h }),
+    });
+    const data = await res.json();
+    if (data.forecast) {
+      if (currentPredictionGraphView === "conformal") {
+        updateChartData(data.forecast.predicted_heads_m.map(v => [v]), data.conformal_q_hat, h);
+      }
+      if (data.raster_slice) {
+        renderHeatmap(data.raster_slice, data.grid_cell.row, data.grid_cell.col);
+        update3DMap(data.raster_slice, data.grid_cell.row, data.grid_cell.col);
+      }
+    }
+  } catch (err) {
+    console.error("fetchLocationPredict error:", err);
+  }
+}
+
 async function changeRegionPreset() {
-  const regionKey = document.getElementById("regionPresetSelect").value;
+  const regionSelect = document.getElementById("regionPresetSelect");
+  if (!regionSelect) return;
+  const regionKey = regionSelect.value;
   try {
     const res = await fetch("/api/v1/config/location", {
       method: "POST",
@@ -1961,12 +2105,14 @@ async function changeRegionPreset() {
       const b = data.metadata.bounds;
       const centerLat = (b[1] + b[3]) / 2.0;
       const centerLon = (b[0] + b[2]) / 2.0;
-      document.getElementById("inputLat").value = centerLat.toFixed(4);
-      document.getElementById("inputLon").value = centerLon.toFixed(4);
+      const latEl = document.getElementById("inputLat");
+      const lonEl = document.getElementById("inputLon");
+      if (latEl) latEl.value = centerLat.toFixed(4);
+      if (lonEl) lonEl.value = centerLon.toFixed(4);
       updateMapMarker(centerLat, centerLon, `<b>📍 ${data.metadata.region_name} Center</b>`);
     }
 
-    fetchDrawdownForecast();
+    fetchDrawdownForecast(currentChartHorizon || 12);
     fetchDepletionAlerts();
     runOptimization();
   } catch (err) {
@@ -1975,13 +2121,16 @@ async function changeRegionPreset() {
 }
 
 async function predictPointLocation() {
-  const latVal = document.getElementById("inputLat").value;
-  const lonVal = document.getElementById("inputLon").value;
-  const horizonVal = document.getElementById("inputH") ? document.getElementById("inputH").value : 12;
+  const latVal = document.getElementById("inputLat") ? document.getElementById("inputLat").value : "";
+  const lonVal = document.getElementById("inputLon") ? document.getElementById("inputLon").value : "";
+  const customH = document.getElementById("customMonthInput");
+  const card1H = document.getElementById("inputHVal");
+  const hiddenH = document.getElementById("inputH");
+
+  const horizon = parseInt(customH && customH.value ? customH.value : (card1H && card1H.value ? card1H.value : (hiddenH && hiddenH.value ? hiddenH.value : 12))) || currentChartHorizon || 12;
 
   const lat = latVal !== "" ? parseFloat(latVal) : 40.15;
   const lon = lonVal !== "" ? parseFloat(lonVal) : -88.25;
-  const horizon = parseInt(horizonVal) || 12;
 
   try {
     const res = await fetch("/api/v1/forecast/location_predict", {
@@ -1995,8 +2144,10 @@ async function predictPointLocation() {
       // 1. Update active chart view with point location forecast
       if (currentPredictionGraphView === "conformal") {
         updateChartData(data.forecast.predicted_heads_m.map(v => [v]), data.conformal_q_hat, horizon);
-      } else {
-        switchPredictionGraphView(currentPredictionGraphView);
+      } else if (currentPredictionGraphView === "pumping_quotas") {
+        renderPumpingQuotasChart();
+      } else if (currentPredictionGraphView === "hydrograph") {
+        renderHydrographChart();
       }
 
       // 2. Highlight target cell in 16x16 spatial grid heatmap and update 3D Aquifer WebGL Map
@@ -2014,7 +2165,7 @@ async function predictPointLocation() {
         Lat: ${data.query_coordinates.lat}°, Lon: ${data.query_coordinates.lon}°<br>
         <b>Region:</b> ${data.region_name}<br>
         <b>Grid Cell:</b> Row ${data.grid_cell.row}, Col ${data.grid_cell.col}<br>
-        <b>Head (Mo 12):</b> ${headLast}m (95% Bound: ${safeLast}m)<br>
+        <b>Head (Mo ${horizon}):</b> ${headLast}m (95% Bound: ${safeLast}m)<br>
         <b>Status:</b> ${data.depletion_risk}
       `;
       // Sync region preset selector and label if auto-switched
@@ -2034,20 +2185,105 @@ async function predictPointLocation() {
   }
 }
 
-function openLocationReport() {
-  const lat = parseFloat(document.getElementById("inputLat").value);
-  const lon = parseFloat(document.getElementById("inputLon").value);
-
+function openCustomReportModal() {
+  const modal = document.getElementById("customReportModal");
+  if (!modal) {
+    generateCustomPdfReport();
+    return;
+  }
+  // Initialize horizon values from current chart / input state if available
   const customH = document.getElementById("customMonthInput");
   const card1H = document.getElementById("inputHVal");
-  const hiddenH = document.getElementById("inputH");
+  const currentH = parseInt(customH && customH.value ? customH.value : (card1H && card1H.value ? card1H.value : 12)) || currentChartHorizon || 12;
 
-  const horizon = parseInt(customH && customH.value ? customH.value : (card1H && card1H.value ? card1H.value : (hiddenH && hiddenH.value ? hiddenH.value : 12))) || currentChartHorizon || 12;
+  const hConf = document.getElementById("rptHorizon_conformal");
+  const hPump = document.getElementById("rptHorizon_pumping");
+  const hHydro = document.getElementById("rptHorizon_hydrograph");
 
-  if (hiddenH) hiddenH.value = horizon;
+  if (hConf) hConf.value = currentH;
+  if (hPump) hPump.value = currentH;
+  if (hHydro) hHydro.value = Math.max(24, currentH);
 
-  // Extract chart data from the Piezometric Head Chart instance
-  let chartParams = "";
+  modal.classList.remove("hidden");
+  modal.style.display = "flex";
+}
+
+function closeCustomReportModal() {
+  const modal = document.getElementById("customReportModal");
+  if (modal) {
+    modal.classList.add("hidden");
+    modal.style.display = "none";
+  }
+}
+
+function toggleAllReportCheckboxes(checkedState) {
+  const ids = [
+    "rptSec_summary",
+    "rptSec_stratigraphy",
+    "rptSec_conformal",
+    "rptSec_lp30day",
+    "rptSec_baselines",
+    "rptSec_ablation",
+    "rptSec_pumping",
+    "rptSec_hydrograph",
+    "rptSec_math",
+    "rptSec_table",
+    "rptSec_recommendations"
+  ];
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.checked = checkedState;
+  });
+}
+
+function generateCustomPdfReport() {
+  const lat = parseFloat(document.getElementById("inputLat") ? document.getElementById("inputLat").value : 40.15) || 40.15;
+  const lon = parseFloat(document.getElementById("inputLon") ? document.getElementById("inputLon").value : -88.25) || -88.25;
+
+  const isChecked = id => {
+    const el = document.getElementById(id);
+    return el ? (el.checked ? 1 : 0) : 1;
+  };
+  const getHorizon = (id, fallback) => {
+    const el = document.getElementById(id);
+    return el ? (parseInt(el.value) || fallback) : fallback;
+  };
+
+  const secSummary = isChecked("rptSec_summary");
+  const secStratigraphy = isChecked("rptSec_stratigraphy");
+  const secConformal = isChecked("rptSec_conformal");
+  const hConformal = getHorizon("rptHorizon_conformal", 12);
+  const secLp30 = isChecked("rptSec_lp30day");
+  const secBaselines = isChecked("rptSec_baselines");
+  const secAblation = isChecked("rptSec_ablation");
+  const secPumping = isChecked("rptSec_pumping");
+  const hPumping = getHorizon("rptHorizon_pumping", 12);
+  const secHydrograph = isChecked("rptSec_hydrograph");
+  const hHydrograph = getHorizon("rptHorizon_hydrograph", 24);
+  const secMath = isChecked("rptSec_math");
+  const secTable = isChecked("rptSec_table");
+  const secRecs = isChecked("rptSec_recommendations");
+
+  let params = new URLSearchParams();
+  params.append("lat", lat);
+  params.append("lon", lon);
+  params.append("horizon", hConformal);
+  params.append("sec_summary", secSummary);
+  params.append("sec_stratigraphy", secStratigraphy);
+  params.append("sec_conformal", secConformal);
+  params.append("horizon_conformal", hConformal);
+  params.append("sec_lp30day", secLp30);
+  params.append("sec_baselines", secBaselines);
+  params.append("sec_ablation", secAblation);
+  params.append("sec_pumping", secPumping);
+  params.append("horizon_pumping", hPumping);
+  params.append("sec_hydrograph", secHydrograph);
+  params.append("horizon_hydrograph", hHydrograph);
+  params.append("sec_math", secMath);
+  params.append("sec_table", secTable);
+  params.append("sec_recommendations", secRecs);
+
+  // Extract chart data from the Piezometric Head Chart instance if present
   try {
     if (chartInstance && chartInstance.data) {
       const cd = chartInstance.data;
@@ -2056,16 +2292,21 @@ function openLocationReport() {
       const lowerDs = cd.datasets.find(d => d.label && d.label.toLowerCase().includes("lower"));
       const upperDs = cd.datasets.find(d => d.label && d.label.toLowerCase().includes("upper"));
       if (predDs && predDs.data && predDs.data.length) {
-        chartParams += "&labels=" + encodeURIComponent(JSON.stringify(labels));
-        chartParams += "&vals=" + encodeURIComponent(JSON.stringify(predDs.data));
-        if (lowerDs && lowerDs.data) chartParams += "&lower=" + encodeURIComponent(JSON.stringify(lowerDs.data));
-        if (upperDs && upperDs.data) chartParams += "&upper=" + encodeURIComponent(JSON.stringify(upperDs.data));
+        params.append("labels", JSON.stringify(labels));
+        params.append("vals", JSON.stringify(predDs.data));
+        if (lowerDs && lowerDs.data) params.append("lower", JSON.stringify(lowerDs.data));
+        if (upperDs && upperDs.data) params.append("upper", JSON.stringify(upperDs.data));
       }
     }
   } catch(e) { console.warn("Chart data extraction for report failed:", e); }
 
-  const reportUrl = `/api/v1/reports/view?lat=${lat}&lon=${lon}&horizon=${horizon}${chartParams}`;
+  closeCustomReportModal();
+  const reportUrl = `/api/v1/reports/view?${params.toString()}`;
   window.open(reportUrl, "_blank");
+}
+
+function openLocationReport() {
+  openCustomReportModal();
 }
 
 function toggleChoicePicker(menuId, triggerId) {
@@ -2090,12 +2331,42 @@ function closeAllChoicePickers() {
 function selectChoiceRegion(value, labelText) {
   const nativeSelect = document.getElementById("regionPresetSelect");
   const labelSpan = document.getElementById("regionPickerSelectedLabel");
+  const headerLocSpan = document.getElementById("headerLocationText");
   if (labelSpan) labelSpan.innerText = labelText;
+  if (headerLocSpan) headerLocSpan.innerText = `📍 ${labelText}`;
   if (nativeSelect) {
     nativeSelect.value = value;
     changeRegionPreset();
   }
   closeAllChoicePickers();
+}
+
+function applyHeaderCoordinates() {
+  const latInput = document.getElementById("headerLatInput");
+  const lonInput = document.getElementById("headerLonInput");
+  if (!latInput || !lonInput) return;
+  const lat = parseFloat(latInput.value);
+  const lon = parseFloat(lonInput.value);
+  if (isNaN(lat) || isNaN(lon)) {
+    alert("Please enter valid numerical latitude and longitude coordinates.");
+    return;
+  }
+
+  const mainLat = document.getElementById("inputLat");
+  const mainLon = document.getElementById("inputLon");
+  if (mainLat) mainLat.value = lat.toFixed(4);
+  if (mainLon) mainLon.value = lon.toFixed(4);
+
+  const headerLocSpan = document.getElementById("headerLocationText");
+  if (headerLocSpan) headerLocSpan.innerText = `📍 (${lat.toFixed(2)}°, ${lon.toFixed(2)}°)`;
+
+  closeAllChoicePickers();
+
+  if (typeof updateMapMarker === "function") {
+    updateMapMarker(lat, lon, `<b>📍 Pinned Query Location</b><br>Lat: ${lat.toFixed(4)}°, Lon: ${lon.toFixed(4)}°`);
+  }
+
+  predictPointLocation();
 }
 
 async function setDataSourceMode(mode) {

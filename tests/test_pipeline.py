@@ -114,7 +114,15 @@ def test_fastapi_endpoints():
 
     res_drawdown = client.get("/api/v1/forecast/spatial_drawdown?horizon=6")
     assert res_drawdown.status_code == 200
-    assert "forecasts" in res_drawdown.json()
+    assert len(res_drawdown.json()["forecasts"]) == 6
+
+    res_drawdown_48 = client.get("/api/v1/forecast/spatial_drawdown?horizon=48")
+    assert res_drawdown_48.status_code == 200
+    assert len(res_drawdown_48.json()["forecasts"]) == 48
+
+    res_hydrograph = client.get("/api/v1/forecast/location_hydrograph?lat=40.15&lon=-88.25&horizon=24")
+    assert res_hydrograph.status_code == 200
+    assert len(res_hydrograph.json()["precipitation_mm"]) == 24
 
     res_alerts = client.get("/api/v1/alerts/depletion")
     assert res_alerts.status_code == 200
@@ -190,6 +198,35 @@ def test_3d_endpoint():
     res_json = res_3d.json()
     assert "vertices" in res_json
     assert len(res_json["vertices"]) == 256
+
+
+def test_custom_report_generation():
+    client = TestClient(app)
+
+    # Test report with specific prediction suites enabled and custom horizons
+    res_custom = client.get(
+        "/api/v1/reports/view?"
+        "lat=40.15&lon=-88.25"
+        "&sec_summary=1"
+        "&sec_stratigraphy=1"
+        "&sec_conformal=1&horizon_conformal=18"
+        "&sec_lp30day=1"
+        "&sec_baselines=1"
+        "&sec_ablation=1"
+        "&sec_pumping=1&horizon_pumping=6"
+        "&sec_hydrograph=1&horizon_hydrograph=36"
+        "&sec_math=1"
+        "&sec_table=1"
+        "&sec_recommendations=1"
+    )
+    assert res_custom.status_code == 200
+    assert "Prediction 1: Piezometric Head Forecast &amp; Split Conformal Bounds (18 Months)" in res_custom.text
+    assert "Prediction 2: Station CGWBHU2335 Worked 30-Day LP Extraction &amp; Head Trajectory" in res_custom.text
+    assert "Prediction 3: Paper Baseline ML Models Performance Comparison" in res_custom.text
+    assert "Prediction 4: Historical Level Autoregressive Ablation Suite" in res_custom.text
+    assert "Prediction 5: Multi-Well SCP Chance-Constrained Pumping Quotas (6 Months)" in res_custom.text
+    assert "Prediction 6: Hydrograph (Rainfall, Vadose Delay Recharge &amp; Head Dynamics - 36 Months)" in res_custom.text
+    assert "18-Month Projected Head" in res_custom.text
 
 
 
