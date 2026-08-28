@@ -838,6 +838,18 @@ def check_depletion_warnings(threshold: float = 36.0):
     }
 
 
+@app.post("/api/v1/control/single_station_lp")
+def solve_single_station_lp():
+    from src.control.single_station_lp import solve_station_cgwbhu2335_lp
+    res = solve_station_cgwbhu2335_lp()
+    state.log_event(
+        "SINGLE_STATION_LP",
+        f"Solved 30-day LP for station {res['station_id']}: Total Extraction = {res['total_extraction_m']}m",
+        extra=res,
+    )
+    return res
+
+
 # Admin API Endpoints
 @app.get("/api/v1/admin/telemetry")
 def get_admin_telemetry():

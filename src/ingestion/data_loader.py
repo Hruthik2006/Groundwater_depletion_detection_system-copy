@@ -4,6 +4,7 @@ from typing import Dict, Any, Optional, Tuple
 from scipy.interpolate import CubicSpline
 from .synthetic_provider import SyntheticDataProvider
 from .realtime_provider import RealtimeEarthEngineDataProvider
+from .dwlr_provider import DWLRDataProvider
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +41,11 @@ class GroundwaterDataLoader:
                 mascon_grid_shape=self.mascon_grid_shape,
                 region_key=self.region_key,
                 bounds=self.bounds,
+                seed=self.seed,
+            )
+        elif self.data_mode == "dwlr":
+            self.provider = DWLRDataProvider(
+                grid_shape=self.grid_shape,
                 seed=self.seed,
             )
         else:

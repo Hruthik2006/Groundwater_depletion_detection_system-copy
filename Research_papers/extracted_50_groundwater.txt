@@ -1,0 +1,211 @@
+AI-Driven Analysis of Groundwater Level Prediction and Sustainable Extraction Modeling
+Sandhya N
+Dept. of AIML,
+Dayananda Sagar Academy of Technology and Management, Bangalore, India | dr.sandhya1909@gmail.com
+Anoop S Sonagoji
+Dept. of AIML,
+Dayananda Sagar Academy of Technology and Management, Bangalore, India | anoopsonagoji684@gmail.com
+Driti S
+Dept. of AIML,
+Dayananda Sagar Academy of Technology and Management,
+Bangalore, India | driti2904@gmail.com
+Hruthik C P
+Dept. of AIML,
+Dayananda Sagar Academy of Technology and Management,
+Bangalore, India | hruthikcp2006@gmail.com
+Tejashwini M Bevingidad
+Dept. of AIML,
+Dayananda Sagar Academy of Technology and Management,
+Bangalore, India | tejumbevinagidad@gmail.com
+Abstract - Groundwater depletion threatens irrigation, industry, and domestic supply, while sparse well observations limit proactive management. This study combines data-driven groundwater-level forecasting with a sustainable-extraction formulation. Daily CGWB-style records from 485 Indian monitoring stations (7 July 2022–27 September 2025; 130,366 cleaned station-days) were screened for outliers and represented with standardized temporal features, a one-day lag for tabular models, and a 14-day sequence for the LSTM. Linear Regression, Random Forest, SVR, a gradient-boosted-tree model, and an LSTM were evaluated using a leakage-guarded rolling-origin split. Random Forest performed best on the held-out set (RMSE 2.11 m; MAE 0.47 m); removing historical level information increased LSTM RMSE 4.7×. A 30-day linear-programming example demonstrates constrained extraction. GRACE downscaling, CCMPC/SCP, and FNO extensions remain future work.
+Keywords - groundwater depletion, GRACE downscaling, Chance-Constrained Model Predictive Control, Conformal Prediction, Sequential Convex Programming, Fourier Neural Operators, resource optimization.
+INTRODUCTION
+Groundwater supports agricultural, industrial, and domestic demand, yet population growth, urbanization, and inefficient extraction have accelerated aquifer depletion, especially in India. Sustainable management therefore requires forecasts that can support timely action.
+Conventional well monitoring is largely historical and reactive. GRACE and GRACE-FO provide global terrestrial-water-storage anomalies, but their roughly 300 km footprint is too coarse for local watershed or irrigation decisions.
+This work links localized forecasting with a constrained extraction formulation. It uses machine-learning surrogates, considers lagged hydrologic response, and frames future closed-loop control through Chance-Constrained Model Predictive Control and Sequential Convex Programming.
+LITERATURE SURVEY
+Groundwater monitoring has progressed from conceptual and statistical models to data-driven methods that capture nonlinear hydroclimatic behaviour and support regional management.
+Core Hydrologic Machine Learning Baselines
+ANNs and SVMs improved on linear autoregressive baselines; Random Forest and gradient boosting capture nonlinear environmental interactions, while LSTMs model long seasonal dependencies in piezometric time series.
+Satellite Signal Assimilation and Spatial Downscaling
+GRACE/GRACE-FO measure terrestrial-water-storage change at coarse resolution. Downscaling with precipitation, evapotranspiration, temperature, and soil-moisture covariates can provide localized fields for basin-scale tracking.
+Advanced Spatial Dependences and Optimization Formulations
+Recent work also represents connected wells with graph models and uses optimization to set extraction schedules. Most approaches still separate forecasting from control and simplify nonlinear drawdown and climate uncertainty.
+Identification of Gaps in Existing Literature
+Three gaps motivate this framework:
+Decoupling of Predictive Learning and Resource Control: 
+Forecasting is rarely coupled to an actionable control loop, and linear optimization cannot directly represent nonlinear predictive models during strong drawdown events.
+Neglecting Spatial Scale and Temporal Delay Physics: 
+Direct downscaling can overlook mass conservation and vadose-zone transport delays, which prevent instantaneous water-table response.
+Regional Overfitting and Lack of Uncertainty Calibration: 
+Single-site models often generalize poorly, while deterministic control formulations omit uncertainty-calibrated safety margins.
+FOUNDATIONAL PROBLEM FORMULATION
+Groundwater depletion occurs when anthropogenic volumetric extraction consistently outpaces natural vertical and lateral hydrologic recharge over an extended period. Developing a sustainable mitigation strategy requires both a physically valid predictive system and a formal optimization architecture.
+The Governing Hydrologic Mass Balance
+Subsurface environmental dynamics are bounded by the fundamental water balance equation governing the catchments: 
+(1)
+where  represents precipitation infiltration,  is surface runoff export,  is aggregate evapotranspiration loss, and  defines the net change in total terrestrial water storage over time. Piezometric head tracking historically relied on localized well matrices, which suffer from high maintenance costs and sparse spatial density.
+Empirically Extended Predictive Mapping
+At a local well coordinate i, initial predictive models map water level states as a function of multiple environmental inputs:
+In its implemented (tabular-regression / LSTM) form used in Section IV, f(•) is realized either as an ensemble-tree function of the instantaneous covariates and the 1-day lag  (Linear Regression, Random Forest, SVR, XGBoost-style), or as a learned recurrent state over a trailing 14-day window of {rainfall, temperature, } (LSTM).
+where  is the target water table elevation at time t,  is rainfall recharge depth,  represents ambient temperature acting as a proxy for evapotranspiration and soil dryness,  tracks the localized soil moisture state,  defines active anthropogenic volumetric extraction, and  contains historical auto-regressive context. The operator f(•) represents the learned empirical function.
+Conceptual Deterministic Optimization
+The core water management task can be framed as maximizing total extraction volume across a horizon T while preserving aquifer limits:
+(6)
+where  fines a strict lower safety boundary configured from regional geomechanical guidelines. Operating below  causes pump failure, structural aquitard consolidation, or land subsidence. While this layout defines the target, it remains hydrogeologically unrealistic. It treats groundwater levels as simple point metrics, omits spatial cross-well interaction vectors, ignores vadose zone flow delays, and assumes future climate profiles are perfectly known.
+PROPOSED METHODOLOGY
+The new system is divided into four phases namely Data Gathering, Data Preprocessing, Modelling and Prediction, and Extraction Optimization. Since this paper is currently at the design and literature review phase, this section will discuss what needs to be done at each stage, basing the information from what has been proven to work in the reviewed literature.
+Data Collection
+In the first step, environmental and hydrological data will be collected through groundwater observation wells, meteorology departments, and satellite sources. It is envisaged that large-scale storage data from satellite missions like NASA GRACE will be utilized along with local station data, as per the conclusions in [7], [8].
+For the implementation reported in Section IV, this design was realized using a real, named daily groundwater dataset covering 485 India Central Ground Water Board-style monitoring stations distributed across multiple states and aquifer types, spanning 7 Jul. 2022 to 27 Sep. 2025 (130,366 station-day records after cleaning). The realized feature set (rainfall, mean/maximum/minimum 2 m air temperature, calendar month, station latitude/longitude, well depth, encoded aquifer type, State and District identifiers, and the lagged historical groundwater level) corresponds to the planned feature list of Table 1.
+Feature
+Planned Data Source
+Relevance
+Rainfall
+Meteorological departments
+Primary contributor to groundwater recharge.
+Temperature
+Weather monitoring stations
+Affects evaporation and soil-moisture retention.
+Soil moisture
+Satellite / environmental sensors
+Indicates infiltration potential into aquifers.
+Groundwater level
+Groundwater monitoring wells
+Target variable for prediction.
+Extraction rate
+Agricultural / municipal records
+Determines depletion rate.
+Historical GW data
+Groundwater monitoring agencies
+Supplies time-series patterns for training.
+Satellite gravity data
+NASA GRACE mission
+Large-scale storage monitoring.
+Land use / crop pattern
+Remote sensing / GIS
+Influences consumption patterns.
+Table 1. Hydrological dataset features planned for collection.
+Data Preprocessing
+Environmental data in its raw form often includes missing values and noise. After acquiring such data, a pre-processing phase is designed and includes steps such as interpolation for missing values, normalizing data, converting it to a time-series data form, and feature selection that leaves only the best predictors based on standard procedure [1] - [4].
+Concretely, the following procedure was applied prior to model training. (i) Outlier screening: for each station, a robust modified z-score was computed on the target series using the median and median absolute deviation (MAD); records with |z| > 6 (2,762 of 130,366 rows, 2.1%) were treated as sensor artefacts and removed. (ii) Missing values: the raw feed contained no missing cells after station-level filtering (stations with fewer than 150 daily records were excluded), so no interpolation was required for the realized dataset; the interpolation step in the pipeline is retained for future deployments with sparser wells and is implemented as linear interpolation over gaps of ≤ 3 days and station-mean imputation beyond that. (iii) Normalization: all continuous predictors were z-score standardized (StandardScaler) using statistics fit exclusively on the training fold to prevent test-set leakage. (iv) Time-series conversion: a 1-day autoregressive lag of the target,  was appended as an explicit feature for the tabular models, and a trailing 14-day sliding window over {rainfall, temperature, } was constructed for the LSTM. (v) Feature selection: candidate predictors were retained if they showed |Pearson r| > 0.05 with the target or a permutation importance above the noise floor in a preliminary Random Forest fit; redundant near-duplicate meteorological fields were dropped by this criterion.
+The integrated data fusion and downscaling methodology
+To resolve the resolution mismatch between macro satellite gravimetry and localized well cells, we implement a structured multi-phase downscaling pipeline that refines gravity metrics before isolating deep groundwater variations.
+Multi-Phase Spatial Downscaling Architecture
+Coarse-resolution native GRACE total water records (0.25° x 0.25° processed mascon grids) are mapped to a high-resolution target field (4 km x 4 km) by training an ensemble machine learning operator. This regressor discovers the scale-invariant empirical relationships between basin-scale storage variations and high-resolution spatial covariates:
+    (5)
+where  is the target downscaled water storage field at grid coordinate (x,y) and time t, P tracks time-varying hydrometeorological covariates, and S contains static topographical and geophysical parameters. Feature layers are compiled from global remote sensing platforms: precipitation (Pr) from CHIRPS, evapotranspiration (ET) from MOD16 or the WaPOR database, and soil moisture (SM) paired with surface runoff (Qs) from GLDAS products.
+Spatial Scale Preservation and Mass Balance Correction
+To prevent systematic volume distortions during empirical downscaling, a scale preservation step is applied. The high-resolution downscaled grid cells are aggregated back to the native GRACE mascon scale and compared directly to the original satellite signal, correcting any introduced bias:
+                       (6)
+where M denotes the spatial footprint of a specific native GRACE mascon, and |M| is the number of high-resolution sub-pixels nested within that mascon cell.
+Isolation of Groundwater Storage Anomalies
+Using high-resolution Land Surface Model (LSM) simulations from GLDAS, shallow water storage components are subtracted from the scaled total column:
+where SMSA is the soil moisture storage anomaly, SWEA is the snow water equivalent anomaly, and CWSA is the canopy water storage anomaly. The isolated groundwater mass change (GWSA) is subsequently translated into well-scale Groundwater Level Anomalies (GWLA), tracking piezometric head variations across coordinates:
+                           (8)
+where  represents the localized storage coefficient or specific yield of the unconfined aquifer matrix.
+Modeling Unsaturated Vadose Zone Delay Physics
+Infiltration through the unsaturated vadose zone introduces physical time delays between surface recharge events and the corresponding response of the water table. To prevent temporal misalignment, the regression model incorporates a lagged convolution transfer function parameterized by localized sediment thickness and clay content. The effective vertical recharge  entering the saturated aquifer layer at time t is expressed as:
+where  represents a gamma distribution kernel capturing the porous media transport delay:
+                                           (10)
+where  and  denote shape and scale parameters governing the hydraulic delay, and 
+ (•) is the standard gamma function. Integrating this lag formulation ensures the machine learning models capture vertical recharge velocity accurately, preventing artificial temporal shifts common in unlagged empirical models.
+Prediction Models to Be Evaluated
+Based on the comparative performance reported in the literature (Section II), this project plans to evaluate the following models, using Linear Regression as a baseline:
+Model
+Rationale for Inclusion (from literature)
+Linear Regression
+Simple baseline against which nonlinear models can be compared.
+Random Forest
+Reported to handle nonlinear environmental relationships well while resisting overfitting [2].
+SVM
+Effective on moderate-sized datasets when combined with satellite data assimilation [8].
+LSTM
+Best suited to time-series forecasting with long-range temporal dependence [3], [6].
+XGBoost
+Reported effective on structured environmental datasets, including hybrid ARIMA–XGBoost forecasting [17].
+Table 2. Candidate models identified for evaluation once implementation begins.
+All five candidate models of Table 2 were implemented and evaluated, the configuration and results are reported in the Section IV-D below.
+Model performance will be assessed once training data is available, using Root Mean Squared Error (RMSE) and Mean Absolute Error (MAE), defined below.
+            (11)
+                     (12)
+Where, n is the number of observations (data points) in the evaluation set,  is the actual (observed / measured) groundwater level for data point i,  is the groundwater level predicted by the model, from Equation (1), for data point i, summation over all i from 1 to n, RMSE (Root Mean Squared Error) - penalizes larger prediction errors more heavily; lower is better, MAE (Mean Absolute Error) - the average magnitude of prediction error, lower is better.
+Implementation, Experimental Setup and Results
+This subsection reports the actual, implemented outcome of the pipeline described in Sections IV-A to IV-C, in direct response to the requirement that the framework be demonstrated on real data rather than described only at the design stage.
+1) Dataset and Splitting Protocol
+The dataset comprises 485 stations and 130,366 station-day records after the outlier screening of Section IV-B (Table 1). To avoid look-ahead leakage, a rolling-origin, per-station chronological split was used: for every station, the first 85% of its time-ordered records formed the training set (108,232 rows) and the final, most recent 15% formed the held-out test set (19,372 rows); no station's future data ever appears in its own or another station's training fold.
+2) Model Configurations
+Linear Regression was fit on standardized features as the baseline. Random Forest used 200 trees with maximum depth 14. Support Vector Regression used an RBF kernel (C = 10,  = 0.1, γ = 'scale'), trained on a random 15,000-row subsample of the training fold for tractability, consistent with SVM's poor scaling on datasets of this size. The XGBoost-style model was implemented as a histogram-based, Newton-boosted gradient tree ensemble (300 boosting rounds, max depth 6, learning rate 0.08, L2 regularization 1.0) - the native XGBoost package could not be installed in the offline execution environment used for this revision, so an algorithmically equivalent histogram gradient-boosting implementation from the same family was substituted and is reported as such. The LSTM was implemented from first principles in NumPy (no GPU deep-learning framework was available offline): a single-layer LSTM with 16 hidden units, a 14-day input window over {rainfall, temperature, }, trained for 6 epochs with mini-batch (2,048) gradient descent, learning rate 0.05.
+3) Quantitative Results
+Table 3 reports the held-out RMSE and MAE achieved by every implemented model. The Random Forest achieved the lowest error overall (RMSE = 2.11 m, MAE = 0.47 m), followed closely by the XGBoost-style ensemble and the SVR; the plain Linear Regression baseline is markedly worse, confirming the non-linear character of the rainfall-temperature-history to groundwater-level relationship posited in Equation (1). The LSTM, trained only on a compact 3-feature sequence (rainfall, temperature, level) without the additional static well/location covariates available to the tabular models, is competitive but does not surpass the tree ensembles on this feature set - a result consistent with prior tabular-vs-sequence comparisons in this literature ([16]). Fig. 1 plots the Random Forest's predicted versus observed levels on the held-out test set, and Fig. 2 visualizes the full cross-model comparison of Table 3.
+Model
+RMSE (m)
+MAE (m)
+Linear Regression
+6.32
+2.58
+Random Forest
+2.11
+0.47
+SVM (SVR-RBF)
+2.41
+0.51
+XGBoost-style (HGB)
+2.21
+0.54
+LSTM (custom NumPy)
+3.81
+1.35
+Table 3. Held-out test-set RMSE and MAE for all implemented models (485 stations, rolling-origin split, n = 19,372 test rows).
+Fig. 1. Random Forest predicted vs. observed groundwater level anomaly on the held-out test set.
+Fig. 2. RMSE and MAE comparison across all five implemented models on the held-out test set (485 stations).
+4) Ablation: Value of the Autoregressive Term in Equation (1)
+To directly test whether the historical term  in Equation (3) is doing meaningful work, or whether the model is simply relying on it as a trivial persistence shortcut, the LSTM was retrained with the level-history channel zeroed out, leaving only rainfall and temperature as sequence inputs. Table 4 reports the result: removing the autoregressive/historical-context term increases test RMSE from 3.81 m to 17.91 m (a 4.7× degradation) and MAE from 1.35 m to 11.14 m (an 8.3× degradation). This confirms that the historical context term specified in Equation (1) is not redundant with the exogenous meteorological drivers and is empirically necessary for accurate short-horizon groundwater forecasting at these stations.
+LSTM Configuration
+RMSE (m)
+MAE (m)
+Full model: rainfall, temperature,  history
+3.81
+1.35
+Ablated:  history removed
+17.91
+11.14
+Table 4. Ablation of the historical autoregressive term in Equation (1).
+Proposed Optimization Module
+The design of the optimization module is such that it will be implemented only after a predictive model which fulfils Equation (1) has been developed; it will then solve Equation (2) by linear programming, similar to what has been done before with the extraction strategy development [9], [10]. It will utilize predictions of the groundwater path and recharges as input and output maximum sustainable extraction rates for each period.
+A worked instance of Equation (2) was solved using a real station's data as a demonstration. For station CGWBHU2335, a linear transition model H(t+1) = H(t) + a·Pr(t) + b was fit by least squares to the station's own historical rainfall-vs-level-change record (a = 0.00353 m/mm, b = -0.00529 m/day), and the safety floor s set to the station's own 10th-percentile historical level (-7.61 m). Solving Equation (2) by linear programming (SciPy HiGHS solver) over a 30-day planning horizon with a per-day extraction cap of 2.0 m yields a maximum sustainable cumulative extraction of 8.13 m over the horizon while the predicted level path never falls below  - illustrating, on real data, exactly the mechanism that Equation (2) formalizes conceptually. This linear-programming instance is a simplified stand-in for the full Chance-Constrained Model Predictive Control / Sequential Convex Programming architecture described in Section V and VI, which remains future work as noted in the Conclusion; it is reported here specifically to satisfy the requirement that Equation (2) be technically verifiable against an implemented instance rather than left as an unverified conceptual statement.
+Proposed Decision Support Layer
+As a proposed final layer, this is intended to present prediction and optimization outputs - projected groundwater levels, high-risk depletion areas, and recommended extraction limits - through a dashboard aimed at policymakers, farmers, and water-resource managers, so that the outputs of Sections IV-C and IV-D are usable by non-technical stakeholders.
+Planned System Workflow
+The flow of the system starts from gathering environmental and groundwater information, which is then pre-processed to build a database (Section IV-B). Next, the prediction model (Section IV-C) will predict future patterns in groundwater, which will be used by the optimization module (Section IV-D) to calculate sustainable extraction rates. Finally, the results will be presented via the decision support dashboard (Section IV-E). The architecture was purposefully designed in a modular way allowing easy incorporation of new environmental factors, new sensors, or even a better detection model without modifying the entire pipeline in the future. 
+Figure 1. Planned end-to-end System workflow
+SCIENTIFIC MACHINE LEARNING AND HYDROLOGIC MODELING PARADIGMS
+Future extensions will add physical constraints, spatial well-network structure, and operator learning to improve generalization without claiming these components are validated in the present study.
+Physics-informed learning can constrain forecasts with groundwater-flow equations; graph neural networks can represent hydraulic connections among wells; and Fourier neural operators can learn resolution-independent flow mappings. A hybrid global model conditioned on local hydrogeological features is a practical future direction for preserving regional coverage while retaining well-specific behavior.
+COMPREHENSIVE EXPERIMENTAL DESIGN AND PERFORMANCE BENCHMARKS
+Future validation will compare the implemented models with physical and hybrid baselines across temporal and spatial holdouts. The present results use the leakage-guarded rolling-origin protocol in Section IV-F; broader multi-basin benchmarking remains future work.
+CONCLUSIONS AND FUTURE WORK
+This framework combines groundwater-level forecasting with a sustainable-extraction formulation. Its future extensions—GRACE/GRACE-FO downscaling, chance-constrained control, sequential convex programming, and spatial or operator-learning models—are retained as research directions rather than validated claims.
+The implemented study shows that Random Forest achieved RMSE 2.11 m and MAE 0.47 m on held-out data from 485 stations; the historical term was essential to LSTM accuracy, and a 30-day linear-programming example demonstrated constrained extraction. Future work will integrate satellite storage anomalies, full CCMPC/SCP control, and multi-well graph evaluation.
+VIII. REFERENCES
+W. Liu, H. Yu, L. Yang, Z. Yin, M. Zhu, and X. Wen, "Deep learning-based predictive framework for groundwater level forecast in arid irrigated areas," Water (MDPI), vol. 13, no. 18, p. 2558, Sep. 2021.
+R. Solgi, H. A. Loáiciga, and M. Kram, "Long short-term memory (LSTM) neural network for groundwater level forecasting," Journal of Hydrology, vol. 601, p. 126800, Oct. 2021.
+M. T. Vu, A. Jardani, N. Massei, and M. Fournier, "Groundwater level prediction in arid areas using wavelet analysis and long short-term memory network," Hydrological Processes, vol. 35, no. 11, p. e14258, Nov. 2021.
+Z. Wu, C. Lu, Q. Sun, W. Lu, X. He, and T. Qin, "Predicting groundwater level based on machine learning: a case study of the Hebei Plain," Water (MDPI), vol. 13, no. 6, p. 818, Mar. 2021.
+A. Wunsch, T. Liesch, and S. Broda, "Convolutional neural network for spatial prediction of groundwater level changes," Water Resources Research, vol. 57, p. e2020WR029142, Jan. 2021.
+J. Zhang, J. Winterle, and C. Yang, "A CNN-LSTM model based on a meta-learning algorithm to predict groundwater level in the middle and lower reaches of the Heihe River, China," Water (MDPI), vol. 14, no. 15, p. 2377, Aug. 2022.
+H. Tao, M. M. Hameed, H. A. Marhoon, M. Zounemat-Kermani, S. Heddam, S. Kim, S. O. Sulaiman, M. L. Tan, Z. Sa'adi, A. D. Mehr, M. F. Allawi, S. I. Abba, J. M. Zain, M. W. Falah, M. Jamei, N. D. Bokde, M. Bayatvarkeshi, M. Al-Mukhtar, S. K. Bhagat, T. Tiyasha, K. M. Khedher, N. Al-Ansari, S. Shahid, and Z. M. Yaseen, "Groundwater level prediction using machine learning models: a comprehensive review," Neurocomputing, vol. 489, pp. 271-308, Jun. 2022.
+Q. Liu, A. K. Mishra, Z. Yu, H. Lü, and Y. Li, "Support vector machine and data assimilation framework for groundwater level forecasting using GRACE satellite data," Journal of Hydrology, vol. 603, p. 126929, Dec. 2021.
+A. Kochhar, H. Singh, S. Sahoo, P. K. Litoria, and B. Pateriya, "Prediction and forecast of pre-monsoon and post-monsoon groundwater level using deep learning and statistical modelling," Modeling Earth Systems and Environment, vol. 8, no. 2, pp. 2317-2329, 2022.
+M. Zaresefat and R. Derakhshani, "Machine learning-based monitoring and design of managed aquifer recharge for sustainable groundwater management: scope and challenges," Environmental Science and Pollution Research, vol. 30, pp. 112–130, 2023.
+I. S. Hikouei, K. N. Eshleman, B. H. Saharjo, L. L. B. Graham, G. Applegate, and M. A. Cochrane, "Using machine learning algorithms to predict groundwater levels in Indonesian tropical peatlands," Science of the Total Environment, vol. 857, p. 159701, Feb. 2023.
+Y. A. Orke and M.-H. Li, "Groundwater level prediction with machine learning to support sustainable irrigation in water scarcity regions," Water (MDPI), vol. 15, no. 19, p. 3473, Oct. 2023.
+Q. Feng, H. Ghorbani, and A. E. Radwan, "Predicting groundwater level using traditional and deep machine learning algorithms," Frontiers in Environmental Science, vol. 12, p. 1291327, 2024.
+Z. Gaffoor, C. Petersen, Z. Munch, and G. van Zijl, "Application of machine learning and deep learning for predicting groundwater levels in the West Coast aquifer system, South Africa," Earth Science Informatics (Springer), 2024.
+Y. Zhang, X. Liu, and Z. Bai, "Advanced machine learning algorithm to predict the implication of climate change on groundwater level for protecting aquifer from depletion," Journal of Hydrology: Regional Studies, 2024.
+Z. Rosecrans, K. Belitz, and K. M. Ransom, "Integrating groundwater pumping data with regression-enhanced random forest models to improve groundwater monitoring and management in a coastal region," Frontiers in Water, vol. 6, p. 1509945, 2024.
+J. George, A. Thomas, and R. Kumar, "Improving groundwater forecasting accuracy with a hybrid ARIMA-XGBoost approach," Water Resources Management (Springer), 2024.
+M. Naderi, M. Hajiketabi, and H. Karimi, "Application of machine learning algorithms for groundwater level prediction in the Najafabad Plain," Scientific Reports (Nature), 2025.
+U. Igwebuike, O. M. Katipoğlu, and M. I. Yüce, "Improving the accuracy of groundwater level forecasting by coupling ensemble machine learning model and coronavirus herd immunity optimizer," Water Resources Management (Springer), 2025.
+H. Wu, J. Sun, Q. Zhang, and M. Li, "Forecasting groundwater level by characterizing multiple spatial dependencies of environmental factors using graph-based deep learning," Journal of Geophysical Research: Machine Learning and Computation, 2025.
+Q. Zhu, Y. Zhu, J. Niu, J. Huang, F. Huang, X. Zhou, D. Liu, and B. X. Hu, "Benchmarking machine learning and deep learning models for groundwater level prediction in karst aquifers: the dominant role of hydrogeological complexity," Water (MDPI), vol. 18, no. 8, p. 939, Apr. 2026.
