@@ -13,6 +13,20 @@ let isGlobeLocationSelected = false;
 let regionOutlineGroup = null;
 let globeOuterPulseRing = null;
 let globePulseTime = 0;
+let globeAtmosphere = null;
+let globeLoaderRing = null;
+let globeLoaderArc = null;
+let globeLoaderArc2 = null;
+let globeLoaderTrack = null;
+let globeSurfaceMat = null;
+let globeWireMat = null;
+let globeAtmosphereMat = null;
+let globeLoadingActive = false;
+let globeLoadingMix = 0;
+let globeLoadPhase = "globe";
+let globeLoadPhaseTime = 0;
+let globeLastFrameTime = 0;
+let globeRegionMats = [];
 
 function switchMainPanel(selectedId) {
   const panels = ["panelFramework", "panelMaps", "panelPredictions"];
@@ -191,19 +205,50 @@ function initInputGlobe() {
     metalness: 0.15,
     emissive: 0x051523,
     side: THREE.FrontSide,
+    transparent: true,
   });
+  globeSurfaceMat = globeMaterial;
 
   globeMesh = new THREE.Mesh(globeGeometry, globeMaterial);
   globeScene.add(globeMesh);
 
   const lineMaterial = new THREE.LineBasicMaterial({ color: 0x72a9ff, opacity: 0.18, transparent: true });
+  globeWireMat = lineMaterial;
   const lineMesh = new THREE.LineSegments(new THREE.WireframeGeometry(globeGeometry), lineMaterial);
   globeMesh.add(lineMesh);
 
   const atmosphereGeo = new THREE.SphereGeometry(2.09, 64, 64);
   const atmosphereMat = new THREE.MeshBasicMaterial({ color: 0x5ea1ff, transparent: true, opacity: 0.08, side: THREE.BackSide });
-  const atmosphere = new THREE.Mesh(atmosphereGeo, atmosphereMat);
-  globeScene.add(atmosphere);
+  globeAtmosphereMat = atmosphereMat;
+  globeAtmosphere = new THREE.Mesh(atmosphereGeo, atmosphereMat);
+  globeScene.add(globeAtmosphere);
+
+  // Circular loading element: the globe morphs into these concentric arcs
+  // while a request is in flight. Parented to the scene (not the globe) so it
+  // always faces the camera and stays a clean circle.
+  const loaderGroup = new THREE.Group();
+  loaderGroup.visible = false;
+  globeScene.add(loaderGroup);
+
+  globeLoaderTrack = new THREE.Mesh(
+    new THREE.TorusGeometry(1.62, 0.018, 12, 96),
+    new THREE.MeshBasicMaterial({ color: 0x2a4a6b, transparent: true, opacity: 0 })
+  );
+  loaderGroup.add(globeLoaderTrack);
+
+  globeLoaderArc = new THREE.Mesh(
+    new THREE.TorusGeometry(1.62, 0.05, 16, 96, Math.PI * 0.55),
+    new THREE.MeshBasicMaterial({ color: 0x00f2fe, transparent: true, opacity: 0 })
+  );
+  loaderGroup.add(globeLoaderArc);
+
+  globeLoaderArc2 = new THREE.Mesh(
+    new THREE.TorusGeometry(1.62, 0.028, 12, 96, Math.PI * 0.28),
+    new THREE.MeshBasicMaterial({ color: 0xffbf47, transparent: true, opacity: 0 })
+  );
+  loaderGroup.add(globeLoaderArc2);
+
+  globeLoaderRing = loaderGroup;
 
   // Hydrogeological Region Outline Group (attached to globeMesh so it stays anchored on sphere surface)
   regionOutlineGroup = new THREE.Group();
@@ -253,6 +298,16 @@ function initInputGlobe() {
   pinMesh.position.set(0, 0, 0.02);
   regionOutlineGroup.add(pinMesh);
 
+  // Region marker materials fade with the globe, so the whole object
+  // dissolves together during the morph instead of leaving a floating pin.
+  pinMat.transparent = true;
+  globeRegionMats = [
+    { mat: fillMat, base: 0.22 },
+    { mat: ringMat, base: 0.9 },
+    { mat: pulseMat, base: 0.7 },
+    { mat: pinMat, base: 1.0 },
+  ];
+
   globeMarker = regionOutlineGroup;
 
   updateInputGlobe();
@@ -271,10 +326,98 @@ function resizeInputGlobe() {
   globeRenderer.setSize(width, height);
 }
 
-function animateInputGlobe() {
+const GLOBE_DWELL = 1.5;
+const LOADER_DWELL = 1.2;
+const MORPH_DUR = 0.55;
+
+function smoothstep(t) {
+  const c = Math.min(Math.max(t, 0), 1);
+  return c * c * (3 - 2 * c);
+}
+
+function setGlobeLoading(active) {
+  globeLoadingActive = active;
+  if (active) {
+    globeLoadPhase = "globe";
+    globeLoadPhaseTime = 0;
+  }
+  const statusEl = document.getElementById("inputScreenLoadingText");
+  if (statusEl) statusEl.classList.toggle("visible", active);
+}
+
+function updateGlobeLoadingMorph(nowMs) {
+  const dt = globeLastFrameTime ? Math.min((nowMs - globeLastFrameTime) / 1000, 0.05) : 0;
+  globeLastFrameTime = nowMs;
+
+  if (globeLoadingActive) {
+    globeLoadPhaseTime += dt;
+    if (globeLoadPhase === "globe" && globeLoadPhaseTime >= GLOBE_DWELL) {
+      globeLoadPhase = "toLoader";
+      globeLoadPhaseTime = 0;
+    } else if (globeLoadPhase === "toLoader" && globeLoadPhaseTime >= MORPH_DUR) {
+      globeLoadPhase = "loader";
+      globeLoadPhaseTime = 0;
+    } else if (globeLoadPhase === "loader" && globeLoadPhaseTime >= LOADER_DWELL) {
+      globeLoadPhase = "toGlobe";
+      globeLoadPhaseTime = 0;
+    } else if (globeLoadPhase === "toGlobe" && globeLoadPhaseTime >= MORPH_DUR) {
+      globeLoadPhase = "globe";
+      globeLoadPhaseTime = 0;
+    }
+  }
+
+  // mix 0 = globe, 1 = circular loader. Each state is held rather than
+  // ping-ponged, so the globe is never half-collapsed and half-visible.
+  if (!globeLoadingActive) {
+    globeLoadingMix = Math.max(0, globeLoadingMix - dt * 3.0);
+  } else if (globeLoadPhase === "globe") {
+    globeLoadingMix = 0;
+  } else if (globeLoadPhase === "loader") {
+    globeLoadingMix = 1;
+  } else if (globeLoadPhase === "toLoader") {
+    globeLoadingMix = smoothstep(globeLoadPhaseTime / MORPH_DUR);
+  } else {
+    globeLoadingMix = 1 - smoothstep(globeLoadPhaseTime / MORPH_DUR);
+  }
+
+  const mix = globeLoadingMix;
+  const s = 1 - 0.42 * mix;
+
+  if (globeMesh) globeMesh.scale.set(s, s, s);
+  if (globeAtmosphere) globeAtmosphere.scale.set(s, s, s);
+  if (globeSurfaceMat) globeSurfaceMat.opacity = 1 - mix;
+  if (globeWireMat) globeWireMat.opacity = 0.18 * (1 - mix);
+  if (globeAtmosphereMat) globeAtmosphereMat.opacity = 0.08 * (1 - mix);
+  for (let i = 0; i < globeRegionMats.length; i++) {
+    const entry = globeRegionMats[i];
+    entry.mat.opacity = entry.base * (1 - mix);
+  }
+  if (regionOutlineGroup) regionOutlineGroup.visible = isGlobeLocationSelected && mix < 0.99;
+
+  if (!globeLoaderRing) return;
+  globeLoaderRing.visible = mix > 0.01;
+  if (globeLoaderRing.visible) {
+    const ls = 1.30 - 0.30 * mix;
+    globeLoaderRing.scale.set(ls, ls, ls);
+    globeLoaderRing.rotation.z += 0.02;
+  }
+  if (globeLoaderTrack) globeLoaderTrack.material.opacity = 0.55 * mix;
+  if (globeLoaderArc) {
+    globeLoaderArc.material.opacity = 0.95 * mix;
+    globeLoaderArc.rotation.z += 0.014;
+  }
+  if (globeLoaderArc2) {
+    globeLoaderArc2.material.opacity = 0.7 * mix;
+    globeLoaderArc2.rotation.z -= 0.032;
+  }
+}
+
+function animateInputGlobe(nowMs) {
   requestAnimationFrame(animateInputGlobe);
 
-  if (globeMesh) {
+  // Rotation is frozen while loading so the globe reads as a still object
+  // that transforms into the loader, not as a globe wobbling in place.
+  if (globeMesh && !globeLoadingActive) {
     if (!isGlobeLocationSelected) {
       // Rotate slowly in idle state before user chooses an input
       globeMesh.rotation.y += 0.0012;
@@ -296,6 +439,11 @@ function animateInputGlobe() {
     const scaleVal = 1.0 + Math.sin(globePulseTime) * 0.06;
     globeOuterPulseRing.scale.set(scaleVal, scaleVal, 1);
   }
+
+  updateGlobeLoadingMorph(nowMs || performance.now());
+
+  if (globeMesh) globeMesh.visible = globeLoadingMix < 0.995;
+  if (globeAtmosphere) globeAtmosphere.visible = globeLoadingMix < 0.995;
 
   if (globeRenderer && globeScene && globeCamera) {
     globeRenderer.render(globeScene, globeCamera);
@@ -326,7 +474,8 @@ function updateInputGlobe(lat, lon, regionKey, isUserChoice = false) {
 
   regionOutlineGroup.position.copy(normal.clone().multiplyScalar(radius * 1.008));
   regionOutlineGroup.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
-  regionOutlineGroup.visible = isGlobeLocationSelected;
+  // Visibility is owned by updateGlobeLoadingMorph, which hides the marker
+  // whenever the globe is collapsed into the circular loader.
 
   // Set target globe rotation to focus on the selected region
   targetGlobeRotY = -lonRad;
@@ -1139,6 +1288,7 @@ function openInputScreen(e) {
   if (!globeRenderer) {
     initInputGlobe();
   }
+  setGlobeLoading(false);
   setTimeout(() => {
     resizeInputGlobe();
     updateInputGlobeFromInputs();
@@ -1202,7 +1352,6 @@ async function validateAndSubmitDetails(e) {
   const latInput = document.getElementById("inputScreenLat");
   const lonInput = document.getElementById("inputScreenLon");
   const errEl = document.getElementById("inputScreenError");
-  const loadingBar = document.getElementById("inputScreenLoadingBar");
   const loadingText = document.getElementById("inputScreenLoadingText");
   const continueBtn = document.getElementById("btnInputScreenContinue");
 
@@ -1258,11 +1407,8 @@ async function validateAndSubmitDetails(e) {
     return;
   }
 
-  // 5. Display Animated Dotted Loading Bar
-  if (loadingBar) {
-    loadingBar.classList.remove("hidden");
-    loadingBar.style.display = "flex";
-  }
+  // 5. Hand the loading indicator over to the globe (morphs into a circular ring)
+  setGlobeLoading(true);
   if (loadingText) {
     loadingText.innerText = "Ingesting GRACE-FO satellite mascons & downscaling...";
   }
@@ -1330,10 +1476,7 @@ async function validateAndSubmitDetails(e) {
     inputScreen.classList.add("hidden");
     setTimeout(() => {
       inputScreen.style.display = "none";
-      if (loadingBar) {
-        loadingBar.classList.add("hidden");
-        loadingBar.style.display = "none";
-      }
+      setGlobeLoading(false);
       if (continueBtn) {
         continueBtn.style.pointerEvents = "auto";
         continueBtn.style.opacity = "1";
