@@ -1,0 +1,339 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Forecast Request → Bounded Quota → Report",
+    "locale": "en",
+    "output": "03-workflow.html",
+    "animation": "trace",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "happy-path",
+        "label": "Request to report",
+        "focus": [
+          "dashboard",
+          "api",
+          "pipeline",
+          "surrogate",
+          "conformal",
+          "mpc",
+          "report"
+        ],
+        "note": "Follow a forecast request from the dashboard through the ML core to a served report."
+      },
+      {
+        "id": "recovery",
+        "label": "Recovery paths",
+        "focus": [
+          "pipeline",
+          "seam",
+          "fallback",
+          "mpc",
+          "shrink"
+        ],
+        "note": "Missing channels fall back to the synthetic replica; infeasible MPC shrinks the trust region."
+      },
+      {
+        "id": "serve-loop",
+        "label": "Report round trip",
+        "focus": [
+          "report",
+          "dashboard"
+        ],
+        "note": "The dashboard refetches the rendered report; scorecards are live solver output."
+      }
+    ],
+    "viewBox": [
+      1230,
+      652
+    ]
+  },
+  "lanes": [
+    {
+      "id": "io",
+      "label": "Interface & Report"
+    },
+    {
+      "id": "ml",
+      "label": "Scientific ML"
+    },
+    {
+      "id": "ctrl",
+      "label": "Safety Control"
+    },
+    {
+      "id": "recovery",
+      "label": "Data Recovery",
+      "variant": "exception"
+    }
+  ],
+  "phases": [
+    {
+      "id": "intake",
+      "label": "Request",
+      "fromCol": 0,
+      "toCol": 1
+    },
+    {
+      "id": "compute",
+      "label": "Build + rollout",
+      "fromCol": 2,
+      "toCol": 3,
+      "variant": "emphasis"
+    },
+    {
+      "id": "bound",
+      "label": "Margin & safety",
+      "fromCol": 4,
+      "toCol": 5
+    }
+  ],
+  "groups": [
+    {
+      "id": "calibration_seam",
+      "label": "Provider calibration",
+      "lane": "recovery",
+      "fromCol": 1,
+      "toCol": 2,
+      "variant": "dashed"
+    },
+    {
+      "id": "trust_region_loop",
+      "label": "Trust-region retry",
+      "lane": "ctrl",
+      "fromCol": 4,
+      "toCol": 5,
+      "variant": "emphasis"
+    }
+  ],
+  "mainPath": [
+    "dashboard",
+    "api",
+    "pipeline",
+    "surrogate",
+    "conformal",
+    "mpc",
+    "report"
+  ],
+  "nodes": [
+    {
+      "id": "dashboard",
+      "lane": "io",
+      "col": 0,
+      "type": "frontend",
+      "label": "Dashboard",
+      "sublabel": "request",
+      "width": 100,
+      "height": 46
+    },
+    {
+      "id": "api",
+      "lane": "io",
+      "col": 1,
+      "type": "backend",
+      "label": "FastAPI App",
+      "sublabel": "SystemState",
+      "width": 100,
+      "height": 46
+    },
+    {
+      "id": "pipeline",
+      "lane": "ml",
+      "col": 2,
+      "type": "backend",
+      "label": "Pipeline",
+      "sublabel": "load + build",
+      "width": 100,
+      "height": 46
+    },
+    {
+      "id": "surrogate",
+      "lane": "ml",
+      "col": 3,
+      "type": "backend",
+      "label": "GNN-LSTM",
+      "sublabel": "rollout",
+      "width": 100,
+      "height": 46
+    },
+    {
+      "id": "conformal",
+      "lane": "ml",
+      "col": 4,
+      "type": "backend",
+      "label": "SplitConformal",
+      "sublabel": "q_hat margin",
+      "width": 100,
+      "height": 46
+    },
+    {
+      "id": "shrink",
+      "lane": "ctrl",
+      "col": 4,
+      "type": "backend",
+      "label": "Trust Region",
+      "sublabel": "trust shrink",
+      "width": 100,
+      "height": 46
+    },
+    {
+      "id": "mpc",
+      "lane": "ctrl",
+      "col": 5,
+      "type": "backend",
+      "label": "SCP-CCMPC",
+      "sublabel": "bounded π*",
+      "tag": "floor h_min",
+      "width": 100,
+      "height": 46
+    },
+    {
+      "id": "report",
+      "lane": "io",
+      "col": 5,
+      "type": "backend",
+      "label": "Report Builder",
+      "sublabel": "scorecards",
+      "width": 100,
+      "height": 46
+    },
+    {
+      "id": "seam",
+      "lane": "recovery",
+      "col": 2,
+      "type": "backend",
+      "label": "Provider Seam",
+      "sublabel": "serves()",
+      "width": 100,
+      "height": 46
+    },
+    {
+      "id": "fallback",
+      "lane": "recovery",
+      "col": 1,
+      "type": "backend",
+      "label": "Synthetic",
+      "sublabel": "replica",
+      "width": 100,
+      "height": 46
+    }
+  ],
+  "edges": [
+    {
+      "id": "request",
+      "from": "dashboard",
+      "to": "api",
+      "label": "GET /api/v1",
+      "variant": "emphasis",
+      "role": "main"
+    },
+    {
+      "id": "route",
+      "from": "api",
+      "to": "pipeline",
+      "label": "build · lazy",
+      "variant": "emphasis",
+      "role": "main"
+    },
+    {
+      "id": "pull_channels",
+      "from": "seam",
+      "to": "pipeline",
+      "label": "pull channels",
+      "variant": "dashed",
+      "role": "branch"
+    },
+    {
+      "id": "replica_recovery",
+      "from": "fallback",
+      "to": "seam",
+      "label": "missing channel",
+      "variant": "dashed",
+      "role": "error"
+    },
+    {
+      "id": "features",
+      "from": "pipeline",
+      "to": "surrogate",
+      "label": "dynamic_sequence + static",
+      "variant": "emphasis",
+      "role": "main"
+    },
+    {
+      "id": "residuals",
+      "from": "surrogate",
+      "to": "conformal",
+      "label": "residual scores",
+      "variant": "emphasis",
+      "role": "main"
+    },
+    {
+      "id": "margin",
+      "from": "conformal",
+      "to": "mpc",
+      "label": "q_hat + floor",
+      "variant": "emphasis",
+      "role": "main"
+    },
+    {
+      "id": "infeasible",
+      "from": "mpc",
+      "to": "shrink",
+      "label": "infeasible",
+      "variant": "dashed",
+      "role": "error"
+    },
+    {
+      "id": "shrink_delta",
+      "from": "shrink",
+      "to": "mpc",
+      "label": "shrink δ",
+      "variant": "dashed",
+      "role": "branch"
+    },
+    {
+      "id": "quotas",
+      "from": "mpc",
+      "to": "report",
+      "label": "quotas π*",
+      "variant": "emphasis",
+      "role": "main"
+    },
+    {
+      "id": "serve",
+      "from": "api",
+      "to": "dashboard",
+      "label": "serve + render",
+      "variant": "emphasis",
+      "role": "return",
+      "width": 1.2
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Single entry point",
+      "items": [
+        "SystemState builds the pipeline once and serves every /api/v1 route on demand",
+        "Report HTML is streamed with live solver tables, never canned placeholders"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Honest channel recovery",
+      "items": [
+        "Provider seam declares capabilities + is_synthetic per channel",
+        "A missing DWLR hydromet channel falls back to the calibrated synthetic replica"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Safety before serving",
+      "items": [
+        "MPC enforces h_min + q_hat and shrinks δ on infeasibility before returning",
+        "quotas are emitted to the report only after the trust-region loop converges"
+      ]
+    }
+  ]
+}

@@ -229,5 +229,103 @@ def test_custom_report_generation():
     assert "18-Month Projected Head" in res_custom.text
 
 
+def test_dataset_typed_accessors():
+    from src.pipeline.dataset import GroundwaterDataset
+
+    loader = GroundwaterDataLoader(data_mode="synthetic", grid_shape=(16, 16))
+    raw = loader.load_processed_dataset(timesteps=12, num_wells=8)
+    dataset = GroundwaterDataset(raw, loader=loader)
+
+    assert dataset.heads().shape == (8, 12)
+    assert len(dataset.coords) == 8
+    assert "grid_shape" in dataset.metadata
+    assert dataset.geophysics["K"].shape == (16, 16)
+    assert dataset.static_features(8).shape == (8, 3)
+
+
+def test_provider_contract_dwlr_and_realtime():
+    from src.ingestion.base_provider import BaseDataProvider
+    from src.ingestion.dwlr_provider import DWLRDataProvider
+    from src.ingestion.realtime_provider import RealtimeEarthEngineDataProvider
+
+    assert issubclass(DWLRDataProvider, BaseDataProvider)
+    dwlr = DWLRDataProvider()
+    assert dwlr.is_synthetic is False
+    assert dwlr.serves()["mode"] == "hybrid"
+    assert dwlr.serves()["channels"] == {
+        "raster": "synthetic",
+        "hydromet": "dwlr",
+        "static": "synthetic",
+    }
+
+    realtime = RealtimeEarthEngineDataProvider()
+    assert realtime.is_synthetic is True
+    served = realtime.serves()
+    assert served["mode"] == "synthetic"
+    assert all(v == "synthetic_standby" for v in served["channels"].values())
+
+    loader = GroundwaterDataLoader(data_mode="dwlr")
+    dataset = loader.load_processed_dataset(timesteps=12, num_wells=8)
+    assert dataset["metadata"]["serves"]["channels"]["hydromet"] == "dwlr"
+
+
+def test_mpc_tunables_wired_from_config():
+    from src.api.app import state
+
+    cfg = state.pipeline.config
+    mpc = state.pipeline.mpc
+    assert mpc.sigma_slack == cfg.sigma_slack
+    assert mpc.delta_0 == cfg.delta_trust
+    assert mpc.w_energy == cfg.gamma_pump
+    assert mpc.max_scp_iters == cfg.max_scp_iters
+
+
+def test_scp_mpc_sigma_slack_default():
+    from src.control.scp_mpc import SCPChanceConstrainedMPC
+
+    mpc_default = SCPChanceConstrainedMPC(horizon=6, num_wells=8)
+    assert mpc_default.sigma_slack == 1000.0
+
+    mpc_custom = SCPChanceConstrainedMPC(horizon=6, num_wells=8, sigma_slack=2500.0)
+    assert mpc_custom.sigma_slack == 2500.0
+
+
+def test_report_contains_live_solver_data():
+    client = TestClient(app)
+
+    res = client.get("/api/v1/reports/view?lat=40.15&lon=-88.25&horizon=12")
+    assert res.status_code == 200
+    html = res.text
+    assert "Random Forest" in html
+    assert "Linear Regression" in html
+    assert "RMSE Degradation Ratio" in html
+    assert "Day 1" in html
+    assert "0.84 m" not in html
+
+
+def test_pumping_quotas_full_tunables():
+    client = TestClient(app)
+
+    res = client.post(
+        "/api/v1/control/pumping_quotas",
+        json={
+            "horizon": 4,
+            "h_min": 35.0,
+            "h_target": 45.0,
+            "alpha": 0.05,
+            "e_max": 8.0,
+            "gamma_pump": 2.0,
+            "sigma_slack": 2000.0,
+            "delta_trust": 2.0,
+            "max_iter": 10,
+        },
+    )
+    assert res.status_code == 200
+    body = res.json()
+    assert body["converged"] is True
+    assert np.asarray(body["pumping_quotas"]).shape == (4, 16)
+    assert body["status"] == "success"
+
+
 
 

@@ -1,12 +1,22 @@
 import numpy as np
 import logging
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any, Tuple
 from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor, HistGradientBoostingRegressor
 from sklearn.svm import SVR
 from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import r2_score
 
 logger = logging.getLogger(__name__)
+
+#: Accepted dataset contract. The evaluator reads the processed dataset through
+#: the typed GroundwaterDataset accessors (heads/coords/rasters_raw); a raw
+#: string-keyed dict is tolerated via the wrapper's dict shim.
+try:
+    from ..pipeline.dataset import GroundwaterDataset
+except ImportError:  # pragma: no cover - standalone import fallback
+    GroundwaterDataset = Any
+DataSet = Any
 
 
 class CustomNumPyLSTM:
@@ -106,28 +116,33 @@ class FrameworkEvaluator:
         rmse = float(np.sqrt(np.mean(diff ** 2)))
         mae = float(np.mean(np.abs(diff)))
         cvr = float(np.mean(y_true.ravel() < h_min))
+        try:
+            r2 = float(r2_score(y_true.ravel(), y_pred.ravel()))
+        except Exception:
+            r2 = float("nan")
 
         return {
             "RMSE": round(rmse, 4),
             "MAE": round(mae, 4),
+            "R2": round(r2, 4),
             "CVR": round(cvr, 4),
         }
 
-    def prepare_tabular_dataset(self, dataset: Dict[str, Any], train_ratio: float = 0.85) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    def prepare_tabular_dataset(self, dataset: DataSet, train_ratio: float = 0.85) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """
         Builds tabular dataset with 1-day lag autoregressive feature H(t-1), rainfall P, temp T, geophysics.
         Executes rolling-origin train (85%) / test (15%) per-station split.
         """
-        G = dataset["wells"]["G_filled"]  # (num_wells, T)
+        G = dataset.heads()  # (num_wells, T)
         num_wells, T = G.shape
 
-        P = dataset["rasters_raw"]["P"]  # (T, H, W)
-        ET = dataset["rasters_raw"]["ET"]
+        P = dataset.rasters_raw["P"]  # (T, H, W)
+        ET = dataset.rasters_raw["ET"]
 
         X_rows = []
         y_rows = []
 
-        coords = dataset["wells"]["coords"]
+        coords = dataset.coords
 
         for i in range(num_wells):
             r, c = coords[i]
@@ -149,7 +164,7 @@ class FrameworkEvaluator:
 
         return X_train, X_test, y_train, y_test
 
-    def fit_paper_baselines(self, dataset: Dict[str, Any]) -> Dict[str, Dict[str, float]]:
+    def fit_paper_baselines(self, dataset: DataSet) -> Dict[str, Dict[str, float]]:
         """
         Fits paper baseline models specified in Section IV-C / Table 2 & 3:
         1. Linear Regression
@@ -192,15 +207,15 @@ class FrameworkEvaluator:
         results["XGBoost-style (HGB)"] = self.compute_metrics(y_test, pred_hgb)
 
         # 5. Custom NumPy LSTM (14-day sliding window)
-        G = dataset["wells"]["G_filled"]
+        G = dataset.heads()
         num_wells, T = G.shape
         seq_len = 14
 
         X_seq_list, y_seq_list = [], []
         for i in range(num_wells):
             for t in range(seq_len, T):
-                seq_p = dataset["rasters_raw"]["P"][t - seq_len : t, 0, 0]
-                seq_t = dataset["rasters_raw"]["temp"][t - seq_len : t, 0, 0] if "temp" in dataset["rasters_raw"] else np.zeros(seq_len)
+                seq_p = dataset.rasters_raw["P"][t - seq_len : t, 0, 0]
+                seq_t = dataset.rasters_raw["temp"][t - seq_len : t, 0, 0] if "temp" in dataset.rasters_raw else np.zeros(seq_len)
                 seq_h = G[i, t - seq_len : t]
                 seq = np.column_stack([seq_p, seq_t, seq_h])
                 X_seq_list.append(seq)
@@ -217,21 +232,21 @@ class FrameworkEvaluator:
 
         return results
 
-    def run_autoregressive_ablation(self, dataset: Dict[str, Any]) -> Dict[str, Dict[str, float]]:
+    def run_autoregressive_ablation(self, dataset: DataSet) -> Dict[str, Dict[str, float]]:
         """
         Runs Historical Autoregressive Term Ablation (Table 4 of paper).
         Compares full LSTM model (P, T, Level_History) against ablated model (Level_History zeroed out).
         Paper Target Result: Omitting level history increases RMSE by 4.7x.
         """
-        G = dataset["wells"]["G_filled"]
+        G = dataset.heads()
         num_wells, T = G.shape
         seq_len = 14
 
         X_seq_full, X_seq_ablated, y_seq = [], [], []
         for i in range(num_wells):
             for t in range(seq_len, T):
-                seq_p = dataset["rasters_raw"]["P"][t - seq_len : t, 0, 0]
-                seq_t = dataset["rasters_raw"]["temp"][t - seq_len : t, 0, 0] if "temp" in dataset["rasters_raw"] else np.zeros(seq_len)
+                seq_p = dataset.rasters_raw["P"][t - seq_len : t, 0, 0]
+                seq_t = dataset.rasters_raw["temp"][t - seq_len : t, 0, 0] if "temp" in dataset.rasters_raw else np.zeros(seq_len)
                 seq_h = G[i, t - seq_len : t]
 
                 full_seq = np.column_stack([seq_p, seq_t, seq_h])
@@ -268,19 +283,19 @@ class FrameworkEvaluator:
 
     def run_feature_ablation_matrix(
         self,
-        dataset: Dict[str, Any],
+        dataset: DataSet,
         downscaler_results: Dict[str, np.ndarray],
         Reff: np.ndarray,
     ) -> Dict[str, Dict[str, float]]:
-        G_true = dataset["wells"]["G_filled"]
+        G_true = dataset.heads()
         T = G_true.shape[1]
 
-        P = dataset["rasters_raw"]["P"]
+        P = dataset.rasters_raw["P"]
         pred_A = np.zeros_like(G_true)
         for i in range(G_true.shape[0]):
             pred_A[i] = G_true[i, 0] + 0.1 * np.cumsum(P[:T, 0, 0] - 15.0) / 10.0
 
-        TWSA_coarse = dataset["rasters_raw"]["TWSA_native"]
+        TWSA_coarse = dataset.rasters_raw["TWSA_native"]
         pred_B = np.zeros_like(G_true)
         for i in range(G_true.shape[0]):
             pred_B[i] = G_true[i, 0] + 0.5 * TWSA_coarse[:T, 0, 0]
@@ -288,7 +303,7 @@ class FrameworkEvaluator:
         GWLA = downscaler_results["GWLA"]
         pred_C = np.zeros_like(G_true)
         for i in range(G_true.shape[0]):
-            r, c = dataset["wells"]["coords"][i]
+            r, c = dataset.coords[i]
             pred_C[i] = G_true[i, 0] + GWLA[:T, r, c] + 0.02 * Reff[:T, r, c]
 
         metrics_A = self.compute_metrics(G_true, pred_A)
@@ -303,10 +318,10 @@ class FrameworkEvaluator:
 
     def run_spatial_kfold_cv(
         self,
-        dataset: Dict[str, Any],
+        dataset: DataSet,
         k_folds: int = 4,
     ) -> Dict[str, float]:
-        G_true = dataset["wells"]["G_filled"]
+        G_true = dataset.heads()
         num_wells = G_true.shape[0]
         fold_size = num_wells // k_folds
 

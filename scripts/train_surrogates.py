@@ -5,13 +5,13 @@ import torch.nn as nn
 import torch.optim as optim
 import numpy as np
 import logging
+from dataclasses import replace
 
 # Add project root to sys.path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from src.ingestion.data_loader import GroundwaterDataLoader
-from src.downscaling.spatial_downscaler import SpatialDownscaler
-from src.downscaling.vadose_delay import VadoseDelayEngine
+from src.pipeline.config import DEFAULT_CONFIG
+from src.pipeline.pipeline import Pipeline
 from src.surrogates.gnn_lstm import GNNLSTMSurrogate
 from src.surrogates.pinn import PINNSurrogate
 from src.surrogates.fno import FNOSurrogate
@@ -25,32 +25,22 @@ def train_surrogate_models(epochs: int = 50, batch_size: int = 4, lr: float = 1e
     os.makedirs(checkpoint_dir, exist_ok=True)
 
     logger.info("Preparing hydrogeological dataset for surrogate model pre-training...")
-    loader = GroundwaterDataLoader(data_mode="synthetic", grid_shape=(16, 16))
-    dataset = loader.load_processed_dataset(timesteps=48, num_wells=16)
+    # Single seam: config-sealed ingest -> downscale -> vadose -> conformal.
+    config = replace(DEFAULT_CONFIG, checkpoint_path=None)
+    pipeline = Pipeline(config=config)
+    dataset = pipeline.build()
+    downscaled = pipeline.downscaling_res
+    Reff = pipeline.Reff
+    timesteps = config.timesteps
 
-    downscaler = SpatialDownscaler(model_type="rf")
-    downscaled = downscaler.fit_and_downscale(
-        dataset["rasters_raw"],
-        dataset["geophysics"],
-        mascon_grid_shape=dataset["metadata"]["mascon_grid_shape"],
-    )
-    vadose = VadoseDelayEngine()
-    Reff = vadose.compute_effective_recharge(
-        dataset["rasters_raw"]["P"],
-        dataset["rasters_raw"]["ET"],
-        dataset["rasters_raw"]["Qs"],
-    )
-
-    G_filled = dataset["wells"]["G_filled"]  # (num_wells, T)
+    G_filled = dataset.heads()  # (num_wells, T)
     num_wells, T = G_filled.shape
-    coords = dataset["wells"]["coords"]
-    Sy_vals = dataset["geophysics"]["Sy"][:num_wells, 0:1]
-    K_vals = dataset["geophysics"]["K"][:num_wells, 0:1]
-    z_bedrock_vals = dataset["geophysics"]["z_bedrock"][:num_wells, 0:1]
-    static_feats = np.hstack([K_vals, Sy_vals, z_bedrock_vals])
+    coords = dataset.coords
+    static_feats = dataset.static_features(num_wells)
+    syn_t = dataset.geophysics["Sy"]
 
     # Prepare sequences for GNN-LSTM
-    seq_len = 12
+    seq_len = config.seq_len
     X_seq_list, Y_seq_list = [], []
 
     for t in range(T - seq_len):
@@ -59,15 +49,15 @@ def train_surrogate_models(epochs: int = 50, batch_size: int = 4, lr: float = 1e
         for w in range(num_wells):
             r, c = int(coords[w][0]), int(coords[w][1])
             g_series = G_filled[w, t:t+seq_len]
-            e_series = np.full(seq_len, 5.0)  # nominal extraction rate
+            e_series = np.full(seq_len, config.nominal_extraction)
             rf_series = Reff[t:t+seq_len, r, c]
             gwla_series = downscaled["GWLA"][t:t+seq_len, r, c]
             well_dyn = np.column_stack([g_series, e_series, rf_series, gwla_series])
             dyn_t.append(well_dyn)
-        
+
         dyn_t = np.stack(dyn_t, axis=1)  # (seq_len, num_wells, 4)
         target_t = G_filled[:, t+1:t+seq_len+1].T  # (seq_len, num_wells)
-        
+
         X_seq_list.append(dyn_t)
         Y_seq_list.append(target_t)
 
@@ -110,8 +100,8 @@ def train_surrogate_models(epochs: int = 50, batch_size: int = 4, lr: float = 1e
     num_samples = 200
     x_rand = torch.rand(num_samples, 1) * 10.0
     y_rand = torch.rand(num_samples, 1) * 10.0
-    t_rand = torch.rand(num_samples, 1) * 36.0
-    E_rand = torch.full((num_samples, 1), 5.0)
+    t_rand = torch.rand(num_samples, 1) * timesteps
+    E_rand = torch.full((num_samples, 1), config.nominal_extraction)
     R_rand = torch.full((num_samples, 1), 0.5)
 
     colloc_coords_t = torch.cat([x_rand, y_rand, t_rand, E_rand, R_rand], dim=-1)
@@ -121,7 +111,7 @@ def train_surrogate_models(epochs: int = 50, batch_size: int = 4, lr: float = 1e
     for w in range(num_wells):
         for t_step in range(T):
             r, c = coords[w]
-            obs_coords_list.append([float(r), float(c), float(t_step), 5.0, float(Reff[t_step, int(r), int(c)])])
+            obs_coords_list.append([float(r), float(c), float(t_step), config.nominal_extraction, float(Reff[t_step, int(r), int(c)])])
             obs_h_list.append([float(G_filled[w, t_step])])
 
     obs_coords_t = torch.tensor(obs_coords_list, dtype=torch.float32)
@@ -150,7 +140,7 @@ def train_surrogate_models(epochs: int = 50, batch_size: int = 4, lr: float = 1e
     fno_model = FNOSurrogate()
     optimizer_fno = optim.Adam(fno_model.parameters(), lr=lr)
 
-    H, W = dataset["rasters_raw"]["P"].shape[1:]
+    H, W = dataset.rasters_raw["P"].shape[1:]
     # Dynamic grid input (batch, H, W, 5) -> [G_t, E_t, Reff_t, GWLA_t, Sy]
     fno_inputs = []
     fno_targets = []
@@ -158,10 +148,10 @@ def train_surrogate_models(epochs: int = 50, batch_size: int = 4, lr: float = 1e
     for t_step in range(T - 1):
         # Create grid rasters
         g_grid = np.full((H, W), 40.0) + downscaled["GWLA"][t_step]
-        e_grid = np.full((H, W), 5.0)
+        e_grid = np.full((H, W), config.nominal_extraction)
         rf_grid = Reff[t_step]
         gwla_grid = downscaled["GWLA"][t_step]
-        sy_grid = dataset["geophysics"]["Sy"]
+        sy_grid = syn_t
 
         input_grid = np.stack([g_grid, e_grid, rf_grid, gwla_grid, sy_grid], axis=-1)
         target_grid = np.full((H, W), 40.0) + downscaled["GWLA"][t_step + 1]

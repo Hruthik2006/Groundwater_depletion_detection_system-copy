@@ -1,102 +1,83 @@
 import uvicorn
 import numpy as np
-import torch
 import logging
 import sys
+from dataclasses import replace
 
-from src.ingestion.data_loader import GroundwaterDataLoader
-from src.downscaling.spatial_downscaler import SpatialDownscaler
-from src.downscaling.vadose_delay import VadoseDelayEngine
-from src.surrogates.gnn_lstm import GNNLSTMSurrogate
+from src.pipeline.config import DEFAULT_CONFIG
+from src.pipeline.pipeline import Pipeline
 from src.surrogates.pinn import PINNSurrogate
 from src.surrogates.fno import FNOSurrogate
-from src.conformal.split_conformal import SplitConformalPredictor
-from src.control.scp_mpc import SCPChanceConstrainedMPC
 from src.control.single_station_lp import solve_station_cgwbhu2335_lp
 from src.evaluation.benchmarks import FrameworkEvaluator
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger("GroundwaterFramework")
 
+_VALID_MODES = ("synthetic", "realtime", "dwlr")
 
-def run_full_pipeline(data_mode: str = "dwlr"):
+
+def run_full_pipeline(data_mode: str = "synthetic"):
+    if data_mode not in _VALID_MODES:
+        raise SystemExit(
+            f"Unknown data mode '{data_mode}'. Valid modes: {', '.join(_VALID_MODES)}. "
+            "Refusing to silently substitute synthetic data — choose the mode explicitly."
+        )
+
     logger.info(f"=== Starting Groundwater Framework Pipeline (Mode: {data_mode}) ===")
 
-    # 1. Ingestion Layer
-    logger.info("Layer 1: Ingesting multi-source geospatial tensors and piezometers...")
-    loader = GroundwaterDataLoader(data_mode=data_mode, grid_shape=(16, 16))
-    dataset = loader.load_processed_dataset(timesteps=36, num_wells=16)
-    logger.info(f"Ingestion complete. Normalized rasters: {list(dataset['rasters_norm'].keys())}")
-
-    # 2. Downscaling Layer
-    logger.info("Layer 2: Executing multi-phase GRACE downscaling & scale preservation...")
-    downscaler = SpatialDownscaler(model_type="rf")
-    downscaled = downscaler.fit_and_downscale(
-        dataset["rasters_raw"],
-        dataset["geophysics"],
-        mascon_grid_shape=dataset["metadata"]["mascon_grid_shape"],
+    # 1. Single orchestration seam: ingest -> downscale -> vadose -> conformal.
+    logger.info("Layer 1-3: Building pipeline (ingestion, downscaling, vadose delay, conformal calibration)...")
+    pipeline = Pipeline(config=replace(DEFAULT_CONFIG, data_mode=data_mode))
+    dataset = pipeline.build()
+    downscaled = pipeline.downscaling_res
+    Reff = pipeline.Reff
+    logger.info(
+        f"Build complete. GWLA anomaly shape: {downscaled['GWLA'].shape}, "
+        f"Mean GWLA: {np.mean(downscaled['GWLA']):.3f}m, R_eff shape: {Reff.shape}"
     )
-    logger.info(f"GWLA anomaly shape: {downscaled['GWLA'].shape}, Mean GWLA: {np.mean(downscaled['GWLA']):.3f}m")
+    logger.info(f"Ingestion complete. Normalized rasters: {list(dataset.rasters_norm.keys())}")
 
-    # 3. Unsaturated Vadose Zone Delay Layer
-    logger.info("Layer 3: Convolving net surface recharge with Gamma vadose delay kernel...")
-    vadose = VadoseDelayEngine(alpha_lag=2.5, beta_lag=1.5)
-    Reff = vadose.compute_effective_recharge(
-        dataset["rasters_raw"]["P"],
-        dataset["rasters_raw"]["ET"],
-        dataset["rasters_raw"]["Qs"],
-    )
-    logger.info(f"Effective recharge R_eff computed. Shape: {Reff.shape}")
-
-    # 4. Scientific Machine Learning Surrogates Layer
+    # 2. Forward-pass sanity checks on all three surrogate architectures.
     logger.info("Layer 4: Initializing Scientific Machine Learning Dynamic Surrogates (GNN-LSTM, PINN, FNO)...")
-    num_wells = dataset["wells"]["G_filled"].shape[0]
-    gnn_model = GNNLSTMSurrogate(num_wells=num_wells)
+    num_wells = dataset.num_wells
+    gnn_model = pipeline.surrogate
     pinn_model = PINNSurrogate()
     fno_model = FNOSurrogate()
 
-    # Forward pass sanity checks
-    coords = dataset["wells"]["coords"]
+    coords = dataset.coords
     adj = gnn_model.compute_adjacency(coords)
-    seq_len = 12
-    g_seq = torch.tensor(dataset["wells"]["G_filled"][:, :seq_len], dtype=torch.float32).T.unsqueeze(0).unsqueeze(-1)
-    e_seq = torch.full((1, seq_len, num_wells, 1), 5.0, dtype=torch.float32)
-    rf_vals = Reff[:seq_len, coords[:,0], coords[:,1]] if Reff.ndim == 3 else Reff[:seq_len, :num_wells]
-    gwla_vals = downscaled["GWLA"][:seq_len, coords[:,0], coords[:,1]]
-    rf_seq = torch.tensor(rf_vals, dtype=torch.float32).unsqueeze(0).unsqueeze(-1)
-    gwla_seq = torch.tensor(gwla_vals, dtype=torch.float32).unsqueeze(0).unsqueeze(-1)
-    dyn_seq = torch.cat([g_seq, e_seq, rf_seq, gwla_seq], dim=-1)
+    seq_len = min(12, dataset.timesteps - 1)
+    dyn_seq = dataset.dynamic_sequence(Reff, downscaled["GWLA"], seq_len, e_nominal=5.0)
+    static_t = dataset.static_features(num_wells)
 
-    Sy_t = torch.tensor(dataset["geophysics"]["Sy"][:num_wells, 0:1], dtype=torch.float32)
-    K_t = torch.tensor(dataset["geophysics"]["K"][:num_wells, 0:1], dtype=torch.float32)
-    z_bedrock_t = torch.tensor(dataset["geophysics"]["z_bedrock"][:num_wells, 0:1], dtype=torch.float32)
-    static_t = torch.cat([K_t, Sy_t, z_bedrock_t], dim=-1)
-
-    gnn_out = gnn_model(dyn_seq, static_t, adj)
+    import torch
+    gnn_out = gnn_model(
+        dyn_seq,
+        torch.tensor(static_t, dtype=torch.float32),
+        adj,
+    )
     logger.info(f"GNN-LSTM surrogate forward pass shape: {gnn_out.shape}")
 
-    # 5. Split Conformal Prediction UQ Layer (Real Surrogate Residual Calibration)
-    logger.info("Layer 5: Calibrating Split Conformal Predictor on surrogate residual errors...")
-    conformal = SplitConformalPredictor(alpha=0.05)
-    y_true = dataset["wells"]["G_filled"][:, 1:seq_len+1]
-    y_pred = gnn_out[0].detach().numpy().T
-    q_hat = conformal.calibrate(y_true, y_pred)
+    # 3. Split Conformal Prediction UQ Layer (already calibrated by build()).
+    logger.info("Layer 5: Split Conformal Predictor calibrated on surrogate residual errors...")
+    q_hat = pipeline.conformal.q_hat
     logger.info(f"Conformal empirical error margin q_hat (alpha=0.05): {q_hat:.4f}m")
 
-    # 6. Worked Single-Station LP & SCP CCMPC Optimization Layer
+    # 4. Worked Single-Station LP & SCP CCMPC Optimization Layer
     logger.info("Layer 6A: Executing Worked Single-Station LP Solver for Station CGWBHU2335...")
     lp_res = solve_station_cgwbhu2335_lp()
     logger.info(f"Station CGWBHU2335 LP Total Sustainable Extraction: {lp_res['total_extraction_m']}m")
 
     logger.info("Layer 6B: Solving Multi-Well Chance-Constrained MPC via Sequential Convex Programming...")
-    mpc = SCPChanceConstrainedMPC(horizon=12, num_wells=num_wells, h_min=35.0)
-    G_0 = dataset["wells"]["G_filled"][:, -1]
+    mpc = pipeline.mpc
+    G_0 = dataset.heads()[:, -1]
     climate_horizon = np.zeros((12, num_wells, 2))
     climate_horizon[:, :, 0] = Reff[:12, :num_wells, 0] if Reff.ndim == 3 else 0.5
     static_geo = np.column_stack([
-        dataset["geophysics"]["K"][:num_wells, 0],
-        dataset["geophysics"]["Sy"][:num_wells, 0],
-        dataset["geophysics"]["z_bedrock"][:num_wells, 0],
+        dataset.geophysics["K"][:num_wells, 0],
+        dataset.geophysics["Sy"][:num_wells, 0],
+        dataset.geophysics["z_bedrock"][:num_wells, 0],
     ])
 
     mpc_res = mpc.solve_optimal_pumping(
@@ -109,7 +90,7 @@ def run_full_pipeline(data_mode: str = "dwlr"):
     )
     logger.info(f"SCP Optimization completed. Converged: {mpc_res['converged']}, Final Cost: {mpc_res['final_cost']:.2f}")
 
-    # 7. Experimental Paper Benchmarks & Ablation Layer
+    # 5. Experimental Paper Benchmarks & Ablation Layer
     logger.info("Layer 7: Running Paper Baseline Models & Autoregressive Ablation Suite...")
     evaluator = FrameworkEvaluator()
     paper_baselines = evaluator.fit_paper_baselines(dataset)
@@ -130,6 +111,6 @@ def run_full_pipeline(data_mode: str = "dwlr"):
 if __name__ == "__main__":
     mode = sys.argv[1] if len(sys.argv) > 1 else "synthetic"
     run_full_pipeline(data_mode=mode)
-    
+
     logger.info("Starting REST API Server & Web Dashboard on http://localhost:8000 ...")
     uvicorn.run("src.api.app:app", host="127.0.0.1", port=8000, reload=True)

@@ -1,0 +1,12 @@
+┌  hyperframes present
+[?25l│
+◇  Presenter server running
+[?25h
+  Deck      slideshow
+  Present   http://localhost:3013
+
+  Click the Present control (or press P) to open the audience display.
+  Google Meet: share the AUDIENCE tab ("Share screen → A tab"), not a window or your whole screen.
+  Zoom desktop: drag the audience tab into its own window and share that window (keep it at least partly visible).
+  Press Ctrl+C to stop
+

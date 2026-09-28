@@ -109,6 +109,9 @@ class GroundwaterDataLoader:
         """
         # Fetch raw provider outputs
         metadata = self.provider.get_grid_metadata()
+        metadata["data_mode"] = self.data_mode
+        if hasattr(self.provider, "serves"):
+            metadata["serves"] = self.provider.serves()
         rasters = self.provider.fetch_hydroclimate_rasters(timesteps=timesteps)
         wells = self.provider.fetch_piezometer_observations(num_wells=num_wells, timesteps=timesteps)
         static_geo = self.provider.fetch_static_geophysics()

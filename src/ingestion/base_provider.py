@@ -7,7 +7,33 @@ class BaseDataProvider(ABC):
     """
     Abstract base data provider interface for hydroclimatic remote sensing,
     satellite gravimetry, piezometer measurements, and static geophysics.
+
+    Honest-seam contract: every adapter must state what fraction of the data it
+    actually serves. ``capabilities`` and ``is_synthetic`` are surfaced through
+    ``get_grid_metadata()["serves"]`` so consumers (status endpoint, reports,
+    operator dashboards) can tell genuine observations from calibrated/fallback
+    replicas instead of silently trusting synthetic mirrors.
     """
+
+    #: Declares what each channel returns. Values are short honesty markers:
+    #:   "live"        -> genuine observations pulled for the active region
+    #:   "dwlr"        -> genuine CGWB well observations (hydromet channel)
+    #:   "synthetic"   -> calibrated/simulated replica serving the channel
+    #:   "synthetic_standby" -> replica served because a live channel is down
+    capabilities: Dict[str, str] = {
+        "raster": "synthetic",
+        "hydromet": "synthetic",
+        "static": "synthetic",
+    }
+
+    #: True when the provider never touches real observations for any channel.
+    is_synthetic: bool = True
+
+    def serves(self) -> Dict[str, Any]:
+        """Honesty report: what each channel really serves, in this build."""
+        channels = dict(self.capabilities)
+        mode = "synthetic" if self.is_synthetic else "hybrid"
+        return {"mode": mode, "channels": channels}
 
     @abstractmethod
     def get_grid_metadata(self) -> Dict[str, Any]:

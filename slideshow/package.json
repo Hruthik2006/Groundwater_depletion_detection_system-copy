@@ -1,0 +1,11 @@
+{
+  "name": "slideshow",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "npx --yes hyperframes@0.8.55 present .",
+    "studio": "npx --yes hyperframes@0.8.55 preview --background",
+    "check": "npx --yes hyperframes@0.8.55 check",
+    "lint": "npx --yes hyperframes@0.8.55 lint"
+  }
+}

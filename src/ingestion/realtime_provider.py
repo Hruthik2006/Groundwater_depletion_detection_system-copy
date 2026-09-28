@@ -24,7 +24,21 @@ class RealtimeEarthEngineDataProvider(BaseDataProvider):
     - MODIS: MODIS/061/MOD16A2 (Evapotranspiration ET)
     - GLDAS: NASA/GLDAS/V021/NOAH/G025/T3M (Soil Moisture, SWE, Canopy Storage)
     - CSR GRACE: CSR RL06.2 Mascon Solution grids
+
+    Honest seam: the raster channel attempts live GEE sampling, everything else
+    (piezometer observations and static geophysics) is served by the calibrated
+    synthetic fallback. ``capabilities`` and ``is_synthetic`` reflect whichever
+    of the two the active build actually used.
     """
+
+    # Raster flips to live only when GEE initializes AND a fetch succeeds;
+    # hydromet/static are always replica channels on this adapter.
+    capabilities: Dict[str, str] = {
+        "raster": "synthetic_standby",
+        "hydromet": "synthetic_standby",
+        "static": "synthetic_standby",
+    }
+    is_synthetic: bool = True
 
     def __init__(
         self,
@@ -84,6 +98,7 @@ class RealtimeEarthEngineDataProvider(BaseDataProvider):
         meta = self._fallback_provider.get_grid_metadata()
         meta["provider_mode"] = "realtime" if self.ee_initialized else "realtime_standby"
         meta["ee_initialized"] = self.ee_initialized
+        meta["serves"] = self.serves()
         return meta
 
     def fetch_hydroclimate_rasters(self, timesteps: int = 36) -> Dict[str, np.ndarray]:
@@ -157,7 +172,15 @@ class RealtimeEarthEngineDataProvider(BaseDataProvider):
         return np.array(rasters[:timesteps])
 
     def fetch_piezometer_observations(self, num_wells: int = 16, timesteps: int = 36) -> Dict[str, Any]:
+        logger.warning(
+            "Realtime provider has no live piezometer channel; serving synthetic fallback "
+            "well observations (see provider serves.hydromet)."
+        )
         return self._fallback_provider.fetch_piezometer_observations(num_wells, timesteps)
 
     def fetch_static_geophysics(self) -> Dict[str, np.ndarray]:
+        logger.warning(
+            "Realtime provider has no live static-geophysics channel; serving synthetic "
+            "fallback properties (see provider serves.static)."
+        )
         return self._fallback_provider.fetch_static_geophysics()

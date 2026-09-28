@@ -1091,7 +1091,7 @@ function openDepletionInfoModal() {
     "2. Drawdown Velocity (m/month):\n" +
     "   Tracks real-time trend rate of water table depletion (Δh / Δt) over recent timesteps.\n\n" +
     "3. Time-to-Critical Failure (Months):\n" +
-    "   Estimates remaining time before water table breaches the critical threshold (h_min = 36.0m).\n\n" +
+    "   Estimates remaining time before water table breaches the depletion alert threshold (critical = 36.0m, control floor h_min = 35.0m).\n\n" +
     "4. Recommended Pumping Curtailment:\n" +
     "   Calculates automatic % pumping reductions to prevent severe regional aquifer depletion."
   );

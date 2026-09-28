@@ -1,0 +1,181 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Groundwater Depletion Detection — System Architecture",
+    "locale": "en",
+    "output": "01-architecture.html",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/Hruthik2006/Groundwater_depletion_detection_system",
+      "provider": "github",
+      "link_mode": "local-only",
+      "revision": "4e12086b4eda37a4bc3376b3293ee1bf69aace9b"
+    },
+    "views": [
+      {
+        "id": "main-path",
+        "label": "Primary forecast path",
+        "focus": ["providers", "loader", "pipeline", "surrogate", "conformal", "mpc", "api", "web"],
+        "note": "Follow the request from the provider seam to the safety-constrained quotas served to the dashboard."
+      },
+      {
+        "id": "honest-seams",
+        "label": "Honest data seams",
+        "focus": ["dlwr-db", "ee", "providers"],
+        "note": "Which channels are real observations and which are calibrated synthetic replicas."
+      },
+      {
+        "id": "ml-core",
+        "label": "Scientific ML core",
+        "focus": ["surrogate", "conformal", "mpc"],
+        "note": "Isolate the modeling box: surrogate rollout, conformal margin, chance-constrained quota."
+      }
+    ],
+    "viewBox": [1030, 540]
+  },
+  "components": [
+    {
+      "id": "dlwr-db",
+      "type": "database",
+      "label": "CGWB DWLR CSVs",
+      "sublabel": "real daily well records",
+      "pos": [40, 60],
+      "size": [150, 64]
+    },
+    {
+      "id": "ee",
+      "type": "external",
+      "label": "Earth Engine",
+      "sublabel": "GRACE / CHIRPS tiles",
+      "pos": [220, 60],
+      "size": [150, 64],
+      "sources": [{ "path": "src/ingestion/realtime_provider.py", "line": 17, "label": "Realtime provider" }]
+    },
+    {
+      "id": "providers",
+      "type": "backend",
+      "label": "Provider Seam",
+      "sublabel": "Synthetic · Realtime · DWLR",
+      "pos": [80, 240],
+      "size": [250, 64],
+      "sources": [
+        { "path": "src/ingestion/base_provider.py", "line": 6, "label": "Base contract" },
+        { "path": "src/ingestion/dwlr_provider.py", "line": 12, "label": "DWLR impl" }
+      ]
+    },
+    {
+      "id": "loader",
+      "type": "backend",
+      "label": "Data Loader",
+      "sublabel": "GroundwaterDataLoader",
+      "pos": [400, 240],
+      "size": [150, 64],
+      "sources": [{ "path": "src/ingestion/data_loader.py", "line": 12, "label": "loader" }]
+    },
+    {
+      "id": "pipeline",
+      "type": "backend",
+      "label": "Pipeline",
+      "sublabel": "downscale → conformal",
+      "pos": [590, 240],
+      "size": [160, 64]
+    },
+    {
+      "id": "surrogate",
+      "type": "backend",
+      "label": "GNN-LSTM",
+      "sublabel": "pretrained surrogate",
+      "pos": [820, 240],
+      "size": [160, 64],
+      "sources": [{ "path": "src/surrogates/gnn_lstm.py", "line": 1, "label": "surrogate" }]
+    },
+    {
+      "id": "conformal",
+      "type": "backend",
+      "label": "Conformal",
+      "sublabel": "SplitConformal · q_hat",
+      "pos": [820, 400],
+      "size": [160, 64],
+      "sources": [{ "path": "src/conformal/split_conformal.py", "line": 1, "label": "margin calibrator" }]
+    },
+    {
+      "id": "mpc",
+      "type": "backend",
+      "label": "SCP-CCMPC",
+      "sublabel": "chance-constrained quotas",
+      "pos": [600, 400],
+      "size": [150, 64],
+      "sources": [{ "path": "src/control/scp_mpc.py", "line": 1, "label": "MPC solver" }]
+    },
+    {
+      "id": "api",
+      "type": "backend",
+      "label": "FastAPI App",
+      "sublabel": "SystemState · /api/v1",
+      "pos": [350, 400],
+      "size": [160, 64],
+      "sources": [{ "path": "src/api/app.py", "line": 211, "label": "SystemState entry" }]
+    },
+    {
+      "id": "web",
+      "type": "frontend",
+      "label": "Dashboard",
+      "sublabel": "web/app.js",
+      "pos": [126, 400],
+      "size": [150, 64],
+      "sources": [{ "path": "web/app.js", "line": 1500, "label": "chart + alerts" }]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "Honest source seams",
+      "wraps": ["dlwr-db", "ee", "providers"],
+      "pad": 16
+    },
+    {
+      "kind": "region",
+      "label": "Scientific ML core",
+      "wraps": ["surrogate", "conformal", "mpc"],
+      "pad": 16
+    }
+  ],
+  "connections": [
+    { "id": "dlwr-providers", "from": "dlwr-db", "to": "providers", "label": "hydromet (real)", "fromSide": "bottom", "toSide": "top" },
+    { "id": "ee-providers", "from": "ee", "to": "providers", "label": "raster · static", "variant": "dashed", "fromSide": "bottom", "toSide": "top" },
+    { "id": "providers-loader", "from": "providers", "to": "loader" },
+    { "id": "loader-pipeline", "from": "loader", "to": "pipeline" },
+    { "id": "pipeline-surrogate", "from": "pipeline", "to": "surrogate", "label": "features" },
+    { "id": "surrogate-conformal", "from": "surrogate", "to": "conformal", "label": "preds → q_hat", "fromSide": "bottom", "toSide": "top", "labelDy": 24 },
+    { "id": "conformal-mpc", "from": "conformal", "to": "mpc", "label": "h_min + q_hat" },
+    { "id": "mpc-api", "from": "mpc", "to": "api", "label": "quotas + bounds", "variant": "emphasis" },
+    { "id": "web-api", "from": "web", "to": "api", "label": "REST /api/v1", "variant": "emphasis" }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Honest data seams",
+      "items": [
+        "BaseDataProvider declares capabilities + is_synthetic; loader surfaces serves()",
+        "DWLR hydromet is real CGWB observation; raster/static are calibrated synthetic replicas"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Live reports",
+      "items": [
+        "FastAPI streams LP30, SCP-CCMPC, and evaluator output into render_location_report",
+        "Scorecards show real RMSE / R² from the paper baseline suite — no canned tables"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Safety floor",
+      "items": [
+        "MPC chance constraint enforces h_min + q_hat; dashboard alerts at 36.0 m critical threshold",
+        "SCP tunables (w_energy, σ_slack, δ_0, max_iters) flow from one sealed Config"
+      ]
+    }
+  ]
+}

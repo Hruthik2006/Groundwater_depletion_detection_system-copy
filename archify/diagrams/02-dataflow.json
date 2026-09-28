@@ -1,0 +1,98 @@
+{
+  "schema_version": 1,
+  "diagram_type": "dataflow",
+  "meta": {
+    "title": "Groundwater Forecast Data Flow",
+    "locale": "en",
+    "output": "02-dataflow.html",
+    "animation": "trace",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "primary-flow",
+        "label": "Primary forecast path",
+        "focus": ["dwlr-csvs", "provider-seam", "pipeline", "mpc", "api", "dashboard"],
+        "note": "Follow real station observations from the seam through the pipeline to the served quotas."
+      },
+      {
+        "id": "honest-seams",
+        "label": "Data provenance",
+        "focus": ["dwlr-csvs", "earth-engine", "synthetic", "provider-seam"],
+        "note": "Which channels are authentic observations and which are calibrated replicas."
+      },
+      {
+        "id": "ml-core",
+        "label": "ML core + controls",
+        "focus": ["surrogate", "conformal", "mpc"],
+        "note": "Surrogate rollout builds the margin basis; conformal calibration fixes the floor."
+      }
+    ],
+    "legend": {
+      "mode": "auto",
+      "entries": {
+        "default": { "label": "Observed / direct" },
+        "emphasis": { "label": "Primary forecast path" },
+        "dashed": { "label": "Synthetic / derived" }
+      }
+    },
+    "viewBox": [1080, 560]
+  },
+  "stages": [
+    { "label": "Sources" },
+    { "label": "Seam" },
+    { "label": "Pipeline" },
+    { "label": "Core" },
+    { "label": "Serve" }
+  ],
+  "nodes": [
+    { "id": "dwlr-csvs", "type": "database", "label": "CGWB DWLR CSVs", "sublabel": "real daily well records", "stage": 0, "row": 0 },
+    { "id": "earth-engine", "type": "external", "label": "Earth Engine", "sublabel": "GRACE · CHIRPS tiles", "stage": 0, "row": 1 },
+    { "id": "synthetic", "type": "backend", "label": "Synthetic", "sublabel": "calibrated replica", "stage": 0, "row": 2 },
+    { "id": "provider-seam", "type": "backend", "label": "Provider Seam", "sublabel": "BaseDataProvider · is_synthetic", "stage": 1, "row": 1, "width": 150 },
+    { "id": "pipeline", "type": "backend", "label": "Groundwater Pipeline", "sublabel": "downscale → recharge → conformal", "stage": 2, "row": 1, "width": 170 },
+    { "id": "surrogate", "type": "backend", "label": "GNN-LSTM Surrogate", "sublabel": "dynamic_sequence rollout", "stage": 3, "row": 0 },
+    { "id": "conformal", "type": "backend", "label": "SplitConformal", "sublabel": "q_hat margin", "stage": 3, "row": 2 },
+    { "id": "mpc", "type": "backend", "label": "SCP-CCMPC", "sublabel": "chance-constrained π*", "stage": 4, "row": 0, "width": 140 },
+    { "id": "api", "type": "backend", "label": "FastAPI /api/v1", "sublabel": "SystemState", "stage": 4, "row": 1 },
+    { "id": "dashboard", "type": "frontend", "label": "Dashboard", "sublabel": "alerts · charts", "stage": 4, "row": 2 }
+  ],
+  "flows": [
+    { "id": "dwlr-seam", "from": "dwlr-csvs", "to": "provider-seam", "label": "hydromet (real)", "classification": "observed channel", "variant": "default", "fromSide": "right", "toSide": "left", "via": [[185, 157], [185, 271]], "labelAt": [204, 210] },
+    { "id": "ee-seam", "from": "earth-engine", "to": "provider-seam", "label": "raster", "classification": "satellite tiles", "variant": "dashed", "fromSide": "top", "toSide": "top", "via": [[100, 195], [315, 195]], "labelAt": [232, 132] },
+    { "id": "synthetic-seam", "from": "synthetic", "to": "provider-seam", "label": "calibrated replica", "classification": "is_synthetic", "variant": "dashed", "fromSide": "right", "toSide": "left", "via": [[225, 385], [225, 271]], "labelAt": [220, 342] },
+    { "id": "dataset", "from": "provider-seam", "to": "pipeline", "label": "dataset", "classification": "capabilities()", "variant": "emphasis", "fromSide": "right", "toSide": "left", "labelAt": [417, 314] },
+    { "id": "to-surrogate", "from": "pipeline", "to": "surrogate", "label": "dynamic_sequence", "classification": "static + grids", "variant": "emphasis", "fromSide": "right", "toSide": "left", "via": [[645, 271], [645, 157]], "labelAt": [645, 204] },
+    { "id": "margin-basis", "from": "surrogate", "to": "conformal", "label": "residual scores", "classification": "margin basis", "variant": "default", "fromSide": "bottom", "toSide": "top", "route": "straight", "labelAt": [752, 220] },
+    { "id": "to-mpc", "from": "conformal", "to": "mpc", "label": "q_hat + floor", "classification": "quantile margin", "variant": "default", "fromSide": "right", "toSide": "left", "via": [[862, 385], [862, 157]], "labelAt": [862, 300] },
+    { "id": "quotas", "from": "mpc", "to": "api", "label": "quotas π*", "classification": "bounds + limits", "variant": "emphasis", "fromSide": "bottom", "toSide": "top", "route": "straight", "labelAt": [968, 200] },
+    { "id": "rest", "from": "api", "to": "dashboard", "label": "REST /api/v1", "classification": "JSON · alerts", "variant": "emphasis", "fromSide": "bottom", "toSide": "top", "route": "straight", "labelAt": [968, 314] }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Data provenance",
+      "items": [
+        "Provider seam declares capabilities + is_synthetic per channel",
+        "DWLR hydromet is authentic CGWB observation; raster/static are calibrated synthetic replicas",
+        "satellite tiles flow on a dashed variant to stay visibly distinct at a glance"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Pipeline build order",
+      "items": [
+        "GroundwaterDataLoader reads through the provider seam via serves()",
+        "downscale → recharge … conformal margin are assembled in one build",
+        "dynamic_sequence + static grids feed the surrogate rollout"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Safety floor serving",
+      "items": [
+        "MPC enforces h_min + q_hat and emits bounded quotas π*",
+        "FastAPI streams quotas + bounds; dashboard alerts at the 36.0 m critical threshold"
+      ]
+    }
+  ]
+}

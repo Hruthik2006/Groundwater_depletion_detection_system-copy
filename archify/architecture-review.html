@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Architecture review for Ground_water</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="module">
+      import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+      mermaid.initialize({ startOnLoad: true, theme: "neutral", securityLevel: "loose" });
+    </script>
+    <style>
+      .seam { stroke-dasharray: 4 4; }
+      .leak { stroke: #dc2626 !important; }
+      .deep { background: linear-gradient(135deg, #0f172a, #1e293b); }
+      .band { border-left-width: 4px; }
+      .mod-label { @apply text-xs uppercase tracking-wider; }
+    </style>
+  </head>
+  <body class="bg-stone-50 text-slate-900 font-sans">
+    <main class="max-w-5xl mx-auto px-6 py-12 space-y-12">
+
+      <header class="border-b border-slate-200 pb-6">
+        <h1 class="text-3xl font-serif">Architecture review &mdash; Ground_water</h1>
+        <p class="text-sm text-slate-500 mt-2">Sep 20, 2026 &middot; <span class="text-slate-600">Python science pipeline + FastAPI web surface + Three.js dashboard</span></p>
+        <div class="mt-4 flex gap-5 text-xs text-slate-600">
+          <span><span class="inline-block w-3 h-3 border border-slate-400 align-middle mr-1"></span>module</span>
+          <span><span class="inline-block w-6 align-middle border-t border-dashed border-slate-500 mr-1"></span>seam</span>
+          <span><span class="inline-block w-3 h-3 align-middle mr-1 bg-red-500"></span>leakage</span>
+          <span><span class="inline-block w-3 h-3 align-middle mr-1 deep"></span>deep module</span>
+        </div>
+      </header>
+
+      <section id="candidates" class="space-y-10">
+
+        <!-- ============ CANDIDATE 1 ============ -->
+        <article class="grid md:grid-cols-2 gap-6 items-start">
+          <div class="space-y-3">
+            <h2 class="text-xl font-serif">1. One deep Pipeline seam behind main, the web surface, and the training scripts</h2>
+            <div class="flex gap-2 text-xs">
+              <span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-medium">Strong</span>
+              <span class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">in-process</span>
+            </div>
+            <div class="font-mono text-sm text-slate-700 space-y-0.5">
+              <div>main.py:27-48</div>
+              <div>src/api/app.py:25-59 (SystemState)</div>
+              <div>src/api/app.py:168-180, 199-211</div>
+              <div>scripts/train_surrogates.py:28-42</div>
+              <div>scripts/train_baselines.py:21-22</div>
+            </div>
+            <p class="text-sm text-slate-700"><b>Problem:</b> the ingest&rarr;downscale&rarr;vadose&rarr;calibrate sequence is re-implemented at five call sites; the three copies inside app.py already drift.</p>
+            <p class="text-sm text-slate-700"><b>Solution:</b> one <span class="font-mono text-xs">Pipeline.build(region) &rarr; (dataset, features, calibrated_predictor)</span> module that main, SystemState, and scripts all call.</p>
+            <ul class="text-sm text-slate-700 list-disc pl-5 space-y-0.5">
+              <li>locality: the sequence lives in one module</li>
+              <li>leverage: one interface, five call sites</li>
+              <li>calibration can no longer be skipped on a mode switch</li>
+            </ul>
+            <div class="border-l-4 border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+              set_data_source_mode (app.py:145-159) switches the provider but never recalibrates &mdash; q_hat stays calibrated on stale data. A single seam fixes this by construction.
+            </div>
+          </div>
+          <div class="grid grid-rows-2 gap-4">
+            <div class="rounded-lg border border-slate-200 bg-white p-3">
+              <div class="text-[11px] uppercase tracking-wider text-slate-400 mb-1">before &mdash; 5 call sites, each re-deriving the same steps</div>
+              <pre class="mermaid">
+flowchart TD
+  M[main.py] --> B1[ingest + downscale + vadose + calibrate]
+  S[SystemState init] --> B1
+  L[set_location_config] --> B1
+  R[_ensure_region_for_coords] --> B1
+  T[train scripts] --> B1
+  B1 -.drift.-> X[copy differs]
+  classDef drift stroke:#dc2626,stroke-width:2px;
+  class X drift
+              </pre>
+            </div>
+            <div class="rounded-lg border border-slate-200 bg-white p-3">
+              <div class="text-[11px] uppercase tracking-wider text-slate-400 mb-1">after &mdash; one deep module, thin callers</div>
+              <div class="flex items-stretch gap-3 h-32">
+                <div class="flex flex-col justify-between text-[10px] uppercase tracking-wider text-slate-400 text-center flex-1">
+                  <div class="border border-slate-300 rounded px-1 py-2">main.py</div>
+                  <div class="border border-slate-300 rounded px-1 py-2">FastAPI routes</div>
+                  <div class="border border-slate-300 rounded px-1 py-2">train_surrogates</div>
+                </div>
+                <svg width="30" height="128" class="shrink-0"><path d="M10 10 H28 M10 64 H28 M10 118 H28" class="seam" stroke="#64748b" stroke-width="2"/></svg>
+                <div class="flex-1 deep rounded border border-slate-700 text-white flex flex-col justify-center px-3">
+                  <div class="text-xs uppercase tracking-wider font-semibold">Pipeline</div>
+                  <div class="text-[10px] text-slate-300 mt-1">build(region) &middot; forecast(lat,lon,h) &middot; calibrate()</div>
+                  <div class="text-[10px] text-slate-400 mt-2">ingestion &middot; downscale &middot; vadose &middot; surrogate &middot; conformal</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <!-- ============ CANDIDATE 2 ============ -->
+        <article class="grid md:grid-cols-2 gap-6 items-start">
+          <div class="space-y-3">
+            <h2 class="text-xl font-serif">2. Type the dataset: a narrow accessor over the tensor dict</h2>
+            <div class="flex gap-2 text-xs">
+              <span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-medium">Strong</span>
+              <span class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">in-process</span>
+            </div>
+            <div class="font-mono text-sm text-slate-700 space-y-0.5">
+              <div>src/ingestion/data_loader.py:102 (load_processed_dataset)</div>
+              <div>main.py:35,45,53,62-73</div>
+              <div>src/api/app.py:46-84, 943, 1128</div>
+              <div>src/evaluation/benchmarks.py:121-130,202,281</div>
+            </div>
+            <p class="text-sm text-slate-700"><b>Problem:</b> every consumer pokes raw string keys and re-derives the tensor slicing (<span class="font-mono text-xs">[:, :seq_len]</span>, <span class="font-mono text-xs">[:num_wells, 0:1]</span>, <span class="font-mono text-xs">Reff.ndim == 3</span> ternaries); renaming a key breaks five modules at their most subtle points.</p>
+            <p class="text-sm text-slate-700"><b>Solution:</b> hide the dict behind a <span class="font-mono text-xs">GroundwaterDataset</span> exposing <span class="font-mono text-xs">.rasters/.wells/.geophysics</span> and one <span class="font-mono text-xs">sample_at_wells()</span>.</p>
+            <ul class="text-sm text-slate-700 list-disc pl-5 space-y-0.5">
+              <li>interface shrinks; slicing moves into the implementation</li>
+              <li>locality: shape decisions concentrate in one module</li>
+              <li>the 2D/3D Reff ambiguity resolves once, not per caller</li>
+            </ul>
+          </div>
+          <div>
+            <!-- mass diagram: interface as tall as implementation (before) vs short interface / tall implementation (after) -->
+            <div class="rounded-lg border border-slate-200 bg-white p-4 space-y-4">
+              <div>
+                <div class="text-[11px] uppercase tracking-wider text-slate-400 mb-1">before &mdash; interface as wide as the implementation</div>
+                <div class="flex gap-3 h-32 items-end">
+                  <div class="text-center w-1/2">
+                    <div class="bg-slate-200 border border-slate-400 rounded" style="height:110px">
+                      <div class="pt-2 text-[10px] uppercase tracking-wider text-slate-600">dict</div>
+                      <div class="text-[10px] text-slate-500 mt-1">"rasters_raw"<br>"rasters_norm"<br>"geophysics"<br>"wells"<br>"metadata"<br>"G_filled"<br>"coords"<br>"Sy" / "K" / ...</div>
+                    </div>
+                  </div>
+                  <div class="w-1/2 text-center">
+                    <div class="bg-stone-200 rounded" style="height:130px"></div>
+                  </div>
+                </div>
+                <div class="text-[10px] text-slate-500 text-center mt-1">every caller must know the whole shape</div>
+              </div>
+              <div>
+                <div class="text-[11px] uppercase tracking-wider text-slate-400 mb-1">after &mdash; short interface, tall implementation</div>
+                <div class="flex gap-3 h-32 items-end">
+                  <div class="w-1/2 text-center">
+                    <div class="bg-emerald-600 rounded" style="height:28px">
+                      <div class="pt-1.5 text-[10px] uppercase tracking-wider text-white">accessors</div>
+                    </div>
+                  </div>
+                  <div class="w-1/2 text-center">
+                    <div class="bg-slate-800 rounded" style="height:130px">
+                      <div class="pt-2 text-[10px] uppercase tracking-wider text-slate-300">implementation</div>
+                      <div class="text-[10px] text-slate-400 mt-1">slicing &middot; well-grid mapping &middot; Reff resolution</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="text-[10px] text-slate-500 text-center mt-1">interface one-tenth the implementation</div>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <!-- ============ CANDIDATE 3 ============ -->
+        <article class="grid md:grid-cols-2 gap-6 items-start">
+          <div class="space-y-3">
+            <h2 class="text-xl font-serif">3. Seal the numbers in one Config; reconcile the drift already live</h2>
+            <div class="flex gap-2 text-xs">
+              <span class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-medium">Worth exploring</span>
+              <span class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">in-process</span>
+            </div>
+            <div class="font-mono text-sm text-slate-700 space-y-0.5">
+              <div>grid_shape=(16,16), num_wells=16, timesteps=36</div>
+              <div>main.py:27-28 &middot; app.py:25,45 &middot; train_*.py</div>
+              <div>seq_len=12: main.py:61, app.py:70, train_surrogates.py:53</div>
+              <div>h_min=35.0 vs safety 36.0: app.py:127,247,348,616</div>
+              <div>open app.js:1000,1094,1500</div>
+            </div>
+            <p class="text-sm text-slate-700"><b>Problem:</b> the same tuning constants are redeclared in five files; they have already drifted &mdash; the runtime safety threshold says <span class="font-mono text-xs">36.0</span> while the MPC and the report math use <span class="font-mono text-xs">h_min=35.0</span>, and train_surrogates silently uses <span class="font-mono text-xs">timesteps=48</span>.</p>
+            <p class="text-sm text-slate-700"><b>Solution:</b> one <span class="font-mono text-xs">Config</span> dataclass imported by main, the web routes, scripts, and tests.</p>
+            <ul class="text-sm text-slate-700 list-disc pl-5 space-y-0.5">
+              <li>locality: tuning decisions in one module</li>
+              <li>the 35-vs-36 ambiguity becomes a single named constant</li>
+            </ul>
+          </div>
+          <div class="rounded-lg border border-slate-200 bg-white p-3">
+            <div class="text-[11px] uppercase tracking-wider text-slate-400 mb-1">before</div>
+            <pre class="mermaid">
+flowchart LR
+  A[main.py] --> N[(grid 16, T 36, h 35)]
+  B[app.py routes] --> N
+  C[train_surrogates] --> M[(T 48)]
+  E[app.js labels] --> H[(h 35m vs 36.0m)]
+  N -.drift.-> Z[number conflict]
+  M -.drift.-> Z
+  H -.drift.-> Z
+  classDef drift stroke:#dc2626,stroke-width:2px;
+  class Z drift
+            </pre>
+            <div class="text-[11px] uppercase tracking-wider text-slate-400 mb-1 mt-3">after &mdash; one Config, everyone points at it</div>
+            <div class="deep rounded border border-slate-700 text-white px-3 py-3 text-center">
+              <div class="text-xs uppercase tracking-wider font-semibold">Config</div>
+              <div class="text-[10px] text-slate-300 mt-1">grid_shape &middot; timesteps &middot; seq_len &middot; h_min &middot; alpha &middot; horizon</div>
+            </div>
+          </div>
+        </article>
+
+        <!-- ============ CANDIDATE 4 ============ -->
+        <article class="grid md:grid-cols-2 gap-6 items-start">
+          <div class="space-y-3">
+            <h2 class="text-xl font-serif">4. Pull the report and help pages out of the web module</h2>
+            <div class="flex gap-2 text-xs">
+              <span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-medium">Strong</span>
+              <span class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">local-substitutable</span>
+            </div>
+            <div class="font-mono text-sm text-slate-700 space-y-0.5">
+              <div>src/api/app.py:275-799 (view_location_report, 525 lines)</div>
+              <div>src/api/app.py:1244-1612 (serve_help_guide, 370 lines)</div>
+              <div>~56% of a 1612-line module is HTML string interpolation</div>
+            </div>
+            <p class="text-sm text-slate-700"><b>Problem:</b> the web module mixes HTTP, pipeline state, and presentation; route handlers reach into raw tensor internals to build HTML, so every pipeline change ripples through string templates.</p>
+            <p class="text-sm text-slate-700"><b>Solution:</b> extract page rendering into static templates / a focused render module; route handlers return data, the seam stays thin.</p>
+            <ul class="text-sm text-slate-700 list-disc pl-5 space-y-0.5">
+              <li>locality: dict-shape knowledge stops leaking into HTML</li>
+              <li>templates become previewable without a live pipeline</li>
+            </ul>
+          </div>
+          <div>
+            <div class="rounded-lg border border-slate-200 bg-white p-3">
+              <div class="text-[11px] uppercase tracking-wider text-slate-400 mb-1">before &mdash; 6 thin bands a request passes through</div>
+              <div class="space-y-1">
+                <div class="band border-slate-300 bg-slate-100 h-8 rounded text-[10px] uppercase tracking-wider text-slate-500 flex items-center px-3">dedupe the dict shape</div>
+                <div class="band border-slate-200 bg-slate-50 h-8 rounded text-[10px] uppercase tracking-wider text-slate-400 flex items-center px-3">slice tensors again</div>
+                <div class="band border-slate-200 bg-slate-50 h-8 rounded text-[10px] uppercase tracking-wider text-slate-400 flex items-center px-3">35 vs 36 decision</div>
+                <div class="band border-slate-200 bg-slate-50 h-8 rounded text-[10px] uppercase tracking-wider text-slate-400 flex items-center px-3">f-string soup ~525 lines</div>
+                <div class="band border-slate-200 bg-slate-50 h-8 rounded text-[10px] uppercase tracking-wider text-slate-400 flex items-center px-3">escape + inline JS</div>
+                <div class="band border-slate-200 bg-slate-50 h-8 rounded text-[10px] uppercase tracking-wider text-slate-400 flex items-center px-3">respond</div>
+              </div>
+            </div>
+            <div class="rounded-lg border border-slate-200 bg-white p-3 mt-3">
+              <div class="text-[11px] uppercase tracking-wider text-slate-400 mb-1">after &mdash; one thick band</div>
+              <div class="band border-emerald-600 bg-emerald-50 h-16 rounded text-xs uppercase tracking-wider text-emerald-800 flex items-center px-3">route &rarr; template render (no tensor access in HTML)</div>
+            </div>
+          </div>
+        </article>
+
+        <!-- ============ CANDIDATE 5 ============ -->
+        <article class="grid md:grid-cols-2 gap-6 items-start">
+          <div class="space-y-3">
+            <h2 class="text-xl font-serif">5. Honest provider seams: DWLR as a real adapter, end silent synthetic fallback</h2>
+            <div class="flex gap-2 text-xs">
+              <span class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-medium">Worth exploring</span>
+              <span class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">ports &amp; adapters</span>
+            </div>
+            <div class="font-mono text-sm text-slate-700 space-y-0.5">
+              <div>src/ingestion/base_provider.py:6</div>
+              <div>src/ingestion/dwlr_provider.py:11 (does not subclass Base)</div>
+              <div>src/ingestion/realtime_provider.py:159-163 (delegates to synthetic)</div>
+              <div>src/api/app.py:145-159 (rejects dwlr)</div>
+              <div>src/ingestion/data_loader.py:81 (dwlr &rarr; "ganges" remap)</div>
+            </div>
+            <p class="text-sm text-slate-700"><b>Problem:</b> the seam's contract is an illusion &mdash; realtime silently serves synthetic piezometers/static, DWLR conforms to no base contract (different constructor, different signature), and pinning a coordinate on DWLR data can silently switch you onto synthetic ganges.</p>
+            <p class="text-sm text-slate-700"><b>Solution:</b> split the base seam so each adapter honestly declares what it serves; give DWLR the base contract; make any fallback explicit and surfaced.</p>
+            <ul class="text-sm text-slate-700 list-disc pl-5 space-y-0.5">
+              <li>leverage: one seam, three honest adapters</li>
+              <li>tests can assert on a real DWLR fixture</li>
+              <li>silent data swaps become loud</li>
+            </ul>
+          </div>
+          <div class="rounded-lg border border-slate-200 bg-white p-3">
+            <div class="text-[11px] uppercase tracking-wider text-slate-400 mb-1">before</div>
+            <pre class="mermaid">
+flowchart LR
+  C[BaseDataProvider seam]
+  S[Synthetic] --> C
+  G[GEE Realtime] --> C
+  G -.silently serves synthetic.-> S
+  D[DWLR] -.no base, own contract.-> C
+  classDef leak stroke:#dc2626,stroke-width:2px;
+  class G,D leak
+            </pre>
+            <div class="text-[11px] uppercase tracking-wider text-slate-400 mb-1 mt-3">after &mdash; sub-seams, honest adapters</div>
+            <pre class="mermaid">
+flowchart LR
+  A[raster seam] --> B[hydromet seam] --> E[static seam]
+  S[Synthetic] --> A
+  G[GEE Realtime] --> A
+  D[DWLR] --> B
+  C[SoilGrids] --> E
+  classDef ok stroke:#059669,stroke-width:2px;
+  class S,G,D,C ok
+            </pre>
+          </div>
+        </article>
+
+        <!-- ============ CANDIDATE 6 ============ -->
+        <article class="grid md:grid-cols-2 gap-6 items-start">
+          <div class="space-y-3">
+            <h2 class="text-xl font-serif">6. Report the truth: render report tables from live LP and evaluator output</h2>
+            <div class="flex gap-2 text-xs">
+              <span class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-medium">Worth exploring</span>
+              <span class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">in-process</span>
+            </div>
+            <div class="font-mono text-sm text-slate-700 space-y-0.5">
+              <div>src/api/app.py:370-379, 509-534 (canned numbers)</div>
+              <div>src/control/single_station_lp.py:111 (real solver)</div>
+              <div>src/evaluation/benchmarks.py:33 (real RMSE)</div>
+              <div>dead MPC tunables: scp_mpc.py:20-31</div>
+              <div>dropped params: app.js:1545 vs app.py:125-129</div>
+            </div>
+            <p class="text-sm text-slate-700"><b>Problem:</b> the report's quota curves are sine waves and its RMSE tables are canned arrays, so it can disagree with the live system it claims to report; meanwhile the MPC exposes an entire tunable surface no caller can set, and the frontend posts parameters the schema silently drops.</p>
+            <p class="text-sm text-slate-700"><b>Solution:</b> render every report section from the LP / MPC / evaluator outputs; wire the solver's tunables through the request schema or delete them.</p>
+            <ul class="text-sm text-slate-700 list-disc pl-5 space-y-0.5">
+              <li>report and pipeline share one truth</li>
+              <li>dead tunables stop masquerading as options</li>
+            </ul>
+          </div>
+          <div class="rounded-lg border border-slate-200 bg-white p-3">
+            <div class="text-[11px] uppercase tracking-wider text-slate-400 mb-1">before</div>
+            <pre class="mermaid">
+flowchart LR
+  R[report sections] --> C1[canned RMSE tables]
+  R --> C2[sine-wave quotas]
+  R -.claimed from.-> P[live pipeline]
+  C1 -.not the real evaluator.-> P
+  C2 -.not the real LP.-> P
+  classDef leak stroke:#dc2626,stroke-width:2px;
+  class C1,C2 leak
+            </pre>
+            <div class="text-[11px] uppercase tracking-wider text-slate-400 mb-1 mt-3">after &mdash; one source</div>
+            <div class="flex items-center justify-center gap-3 h-24">
+              <div class="border border-slate-300 rounded px-3 py-2 text-[10px] uppercase tracking-wider text-slate-500 text-center">LP solver<br>evaluator<br>MPC</div>
+              <svg width="40" height="40"><path d="M10 20 H30" stroke="#64748b" stroke-width="2"/></svg>
+              <div class="deep rounded border border-slate-700 text-white px-3 py-2 text-center">
+                <div class="text-xs uppercase tracking-wider font-semibold">Report</div>
+                <div class="text-[10px] text-slate-300">rendered, never fabricated</div>
+              </div>
+            </div>
+          </div>
+        </article>
+
+      </section>
+
+      <section id="top-recommendation" class="deep rounded-lg border border-slate-700 text-white p-6">
+        <h2 class="text-lg font-serif text-white">Top recommendation</h2>
+        <p class="text-sm text-slate-200 mt-1">
+          <a href="#candidates" class="underline decoration-emerald-400">Candidate 1 &mdash; one deep Pipeline seam.</a>
+          It is the single edit that kills the five-way duplication (candidate 1 scope), forces the dataset shape behind one interface (pairs with candidate 2), and makes the missed-recalibration bug unrepresentable.
+        </p>
+      </section>
+
+    </main>
+  </body>
+</html>

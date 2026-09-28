@@ -2,25 +2,34 @@ import sys
 import os
 import logging
 import json
+from dataclasses import replace
 
 # Add root directory to sys.path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from src.ingestion.data_loader import GroundwaterDataLoader
+from src.pipeline.config import DEFAULT_CONFIG
+from src.pipeline.pipeline import Pipeline
 from src.evaluation.benchmarks import FrameworkEvaluator
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger("TrainBaselines")
 
+_VALID_MODES = ("synthetic", "realtime", "dwlr")
+
 
 def main():
-    data_mode = sys.argv[1] if len(sys.argv) > 1 else "dwlr"
+    data_mode = sys.argv[1] if len(sys.argv) > 1 else "synthetic"
+    if data_mode not in _VALID_MODES:
+        raise SystemExit(
+            f"Unknown data mode '{data_mode}'. Valid modes: {', '.join(_VALID_MODES)}. "
+            "Refusing to silently substitute synthetic data — choose the mode explicitly."
+        )
     logger.info(f"=== Starting Research Paper Baseline Models & Ablation Suite (Data Mode: {data_mode}) ===")
 
-    # 1. Load Dataset
-    loader = GroundwaterDataLoader(data_mode=data_mode, grid_shape=(16, 16))
-    dataset = loader.load_processed_dataset(timesteps=36, num_wells=16)
-    logger.info(f"Dataset Loaded. Piezometer Wells Shape: {dataset['wells']['G_filled'].shape}")
+    # 1. Build the sealed pipeline once (ingest -> downscale -> vadose -> conformal).
+    pipeline = Pipeline(config=replace(DEFAULT_CONFIG, data_mode=data_mode))
+    dataset = pipeline.build()
+    logger.info(f"Dataset Loaded. Piezometer Wells Shape: {dataset.heads().shape}")
 
     # 2. Instantiate Evaluator
     evaluator = FrameworkEvaluator()

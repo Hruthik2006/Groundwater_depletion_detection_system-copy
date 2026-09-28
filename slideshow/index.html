@@ -1,0 +1,961 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <title>Satellite Groundwater Intelligence — Deck</title>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: #080808;
+      }
+      body {
+        font-family: system-ui, ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif;
+        color: #fcfcfc;
+      }
+      .serif {
+        font-family: Georgia, "Times New Roman", Times, serif;
+        font-style: italic;
+        font-weight: 400;
+      }
+
+      .scene {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+      }
+      .scene.is-active {
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+      }
+      .clip-inner {
+        position: absolute;
+        inset: 0;
+        padding: 112px 128px;
+      }
+
+      .eyebrow {
+        font-size: 18px;
+        font-weight: 700;
+        letter-spacing: 0.28em;
+        text-transform: uppercase;
+        color: #b5b2b2;
+      }
+      .eyebrow .dot {
+        display: inline-block;
+        width: 13px;
+        height: 13px;
+        border-radius: 50%;
+        background: #fe1e34;
+        margin-right: 18px;
+        vertical-align: 1px;
+      }
+      .headline {
+        font-size: 76px;
+        font-weight: 700;
+        letter-spacing: -0.045em;
+        line-height: 1.04;
+        max-width: 1640px;
+      }
+      .headline-lg {
+        font-size: 92px;
+        letter-spacing: -0.05em;
+        line-height: 1.0;
+      }
+      .headline .serif {
+        color: #f3efef;
+        font-size: 0.66em;
+        letter-spacing: -0.01em;
+      }
+      .headline .accent {
+        color: #fe1e34;
+      }
+      .frag {
+        opacity: 0;
+      }
+
+      .itemRow {
+        display: flex;
+        align-items: baseline;
+        gap: 28px;
+        font-size: 44px;
+        line-height: 1.25;
+        color: #e6e4e4;
+      }
+      .itemRow .idx {
+        font-family: Georgia, "Times New Roman", Times, serif;
+        font-style: italic;
+        color: #fe1e34;
+        font-size: 40px;
+      }
+      .itemRow .muted {
+        color: #b5b2b2;
+      }
+
+      .chip {
+        background: #171617;
+        border: 1px solid #434343;
+        border-radius: 8px;
+        padding: 26px 30px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .chip.is-hot {
+        border-color: #fe1e34;
+        position: relative;
+      }
+      .chip.is-hot::after {
+        content: "";
+        position: absolute;
+        top: 9px;
+        right: 9px;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: #fe1e34;
+      }
+      .chip .cn {
+        font-size: 44px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        text-transform: uppercase;
+      }
+      .chip .cc {
+        font-size: 20px;
+        color: #b5b2b2;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+
+      .modelCard {
+        background: #171617;
+        border: 1px solid #dddddd;
+        border-radius: 8px;
+        padding: 34px 38px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+      .modelCard .mn {
+        font-size: 46px;
+        font-weight: 700;
+        letter-spacing: -0.03em;
+      }
+      .modelCard .ml {
+        font-size: 22px;
+        line-height: 1.35;
+        color: #b5b2b2;
+      }
+
+      .floorNote {
+        font-size: 40px;
+        line-height: 1.3;
+        color: #e6e4e4;
+      }
+      .cap {
+        font-size: 24px;
+        color: #b5b2b2;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+
+      /* decorative ghost glyph */
+      .ghost {
+        position: absolute;
+        pointer-events: none;
+        user-select: none;
+        z-index: 0;
+      }
+
+      .rail-row {
+        display: flex;
+        align-items: center;
+      }
+      .node {
+        border-radius: 8px;
+        padding: 16px 0;
+        text-align: center;
+        font-size: 36px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        text-transform: uppercase;
+        color: #fcfcfc;
+        background: #171617;
+        border: 1px solid #434343;
+        width: 196px;
+        flex: none;
+      }
+      .node small {
+        display: block;
+        font-size: 20px;
+        font-weight: 400;
+        letter-spacing: 0.16em;
+        color: #b5b2b2;
+        margin-top: 8px;
+        text-transform: uppercase;
+      }
+      .node.is-ctl {
+        border-color: #fe1e34;
+        color: #fff;
+      }
+      .arrow {
+        flex: none;
+        width: 56px;
+        text-align: center;
+        color: #525252;
+        font-size: 34px;
+        font-weight: 400;
+      }
+    </style>
+  </head>
+  <body>
+
+    <script type="application/hyperframes-slideshow+json">
+      {
+        "slides": [
+          {
+            "sceneId": "cover",
+            "notes": "Open cold. Drop the headline, pause a beat on 'every aquifer', then bridge to the hidden nature of the problem."
+          },
+          {
+            "sceneId": "problem",
+            "notes": "Reveal the three gaps one by one. Emphasize that all three are invisible until wells fail.",
+            "fragments": [7.0, 9.0, 11.5]
+          },
+          {
+            "sceneId": "pipeline",
+            "notes": "Read the loop left to right once: ingest, scale, delay, surrogate, certify, control, verify. Say the word CONTROL a half-beat slower."
+          },
+          {
+            "sceneId": "ingestion",
+            "notes": "Four satellites plus field wells. Click the red-bordered GRACE chip to explode into what GRACE actually measures.",
+            "fragments": [24.2, 26.4, 28.6],
+            "hotspots": [
+              {
+                "id": "grace",
+                "label": "What does GRACE measure?",
+                "target": "grace-detail",
+                "region": { "x": 5, "y": 24, "w": 17, "h": 21 }
+              }
+            ]
+          },
+          {
+            "sceneId": "downscale",
+            "notes": "300 km mascon pixels are useless to a town — the downscaler rebuilds the field at a 4 km grid while conserving mass.",
+            "fragments": [32.4, 34.8]
+          },
+          {
+            "sceneId": "vadose",
+            "notes": "Rain recharges the aquifer months later, smeared by the soil column. The Gamma kernel turns a lag into a convolution."
+          },
+          {
+            "sceneId": "surrogates",
+            "notes": "Three surrogates — a graph message-passing net, a PDE-regularized PINN, and a spectral FNO. They learn flow physics from data.",
+            "fragments": [46.4, 49.2]
+          },
+          {
+            "sceneId": "conformal",
+            "notes": "Distribution-free safety. One quantile from held-out errors, and the floor lifts by it. Click 'how' for the mechanism.",
+            "fragments": [55.0, 57.5],
+            "hotspots": [
+              {
+                "id": "conformal-how",
+                "label": "How does split conformal work?",
+                "target": "conformal-detail",
+                "region": { "x": 4, "y": 58, "w": 31, "h": 24 }
+              }
+            ]
+          },
+          {
+            "sceneId": "control",
+            "notes": "This is the payoff: a 12-month pumping schedule solved with the safety floor baked in as a constraint."
+          },
+          {
+            "sceneId": "dashboard",
+            "notes": "The dashboard turns forecasts into alerts, health scores, and printable reports. Four hydro regions are preset."
+          }
+        ],
+        "slideSequences": [
+          {
+            "id": "grace-detail",
+            "label": "What GRACE actually measures",
+            "slides": [
+              { "sceneId": "grace-1", "notes": "GRACE maps Earth's gravity field monthly. Water is heavy, so gravity traces where storage is moving." },
+              { "sceneId": "grace-2", "notes": "Mascons lump hundreds of km together — the reason this pipeline must downscale before anyone can act." }
+            ]
+          },
+          {
+            "id": "conformal-detail",
+            "label": "Split conformal, explained",
+            "slides": [
+              { "sceneId": "conformal-1", "notes": "Hold out a calibration fold, compute the residual quantile. No distributional assumptions." },
+              { "sceneId": "conformal-2", "notes": "The optimizer enforces the floor with probability 1-alpha. Uncertainty becomes a hard constraint." }
+            ]
+          }
+        ]
+      }
+    </script>
+
+    <!-- Scene 1 — Cover -->
+    <div id="cover" class="scene" data-composition-id="cover" data-start="0" data-duration="6" data-label="Cover" data-width="1920" data-height="1080">
+      <svg class="ghost" data-layout-allow-overflow viewBox="0 0 1920 1080"
+        style="right: -70px; top: -190px; width: 760px; height: 760px" aria-hidden="true">
+        <circle cx="380" cy="380" r="330" fill="none" stroke="#1b1a19" stroke-width="3" />
+        <circle cx="380" cy="380" r="282" fill="none" stroke="#191817" stroke-width="2" />
+      </svg>
+      <div class="clip-inner" style="z-index: 1">
+        <div class="eyebrow" data-guide="eyebrow"><span class="dot"></span>Satellite Groundwater Intelligence</div>
+        <div style="height: 76px"></div>
+        <h1 class="headline headline-lg">
+          WE CAN SEE<br />EVERY AQUIFER <span class="serif">drain</span><span class="accent">.</span>
+        </h1>
+        <div style="height: 64px"></div>
+        <p class="floorNote" style="color: #b5b2b2">
+          A seven-layer pipeline from orbit to safe extraction
+        </p>
+        <p class="floorNote serif" style="color: #f3efef; margin-top: 6px">predict, certify, control.</p>
+      </div>
+    </div>
+
+    <!-- Scene 2 — Problem -->
+    <div id="problem" class="scene" data-composition-id="problem" data-start="6" data-duration="9" data-label="The problem" data-width="1920" data-height="1080">
+      <svg class="ghost" data-layout-allow-overflow viewBox="0 0 1920 1080"
+        style="left: -240px; bottom: -260px; width: 620px; height: 620px" aria-hidden="true">
+        <circle cx="310" cy="310" r="270" fill="none" stroke="#1b1a19" stroke-width="3" />
+      </svg>
+      <div class="clip-inner" style="z-index: 1">
+        <div class="eyebrow"><span class="dot"></span>The problem</div>
+        <div style="height: 52px"></div>
+        <h1 class="headline">GROUNDWATER CRISES ARE INVISIBLE UNTIL THE WELLS RUN DRY</h1>
+        <div style="height: 84px"></div>
+        <div class="frag itemRow" id="prob-01"><span class="idx">01</span>Satellite gravity sees <b>300 km</b> — a community plans on a <b>4 km</b> scale</div>
+        <div style="height: 46px"></div>
+        <div class="frag itemRow" id="prob-02"><span class="idx">02</span>Surface rain arrives at the water table <b>months late</b></div>
+        <div style="height: 46px"></div>
+        <div class="frag itemRow" id="prob-03"><span class="idx">03</span>Pumping quotas ignore the <b>uncertainty</b> in every forecast</div>
+      </div>
+    </div>
+
+    <!-- Scene 3 — Pipeline -->
+    <div id="pipeline" class="scene" data-composition-id="pipeline" data-start="15" data-duration="8" data-label="The loop" data-width="1920" data-height="1080">
+      <div class="clip-inner">
+        <div class="eyebrow"><span class="dot"></span>The pipeline</div>
+        <div style="height: 52px"></div>
+        <h1 class="headline">ONE CLOSED LOOP: INGEST, LEARN PHYSICS, CERTIFY, <span class="accent">CONTROL</span></h1>
+        <div style="height: 120px"></div>
+        <div class="rail-row">
+          <div class="node">1<span style="display:block; font-size:20px; margin-top:6px; letter-spacing:0.14em"><small>INGEST</small></span></div>
+          <div class="arrow">→</div>
+          <div class="node">2<span style="display:block; font-size:20px; margin-top:6px; letter-spacing:0.14em"><small>DOWNSCALE</small></span></div>
+          <div class="arrow">→</div>
+          <div class="node">3<span style="display:block; font-size:20px; margin-top:6px; letter-spacing:0.14em"><small>VADOSE</small></span></div>
+          <div class="arrow">→</div>
+          <div class="node">4<span style="display:block; font-size:20px; margin-top:6px; letter-spacing:0.14em"><small>SURROGATES</small></span></div>
+          <div class="arrow">→</div>
+          <div class="node">5<span style="display:block; font-size:20px; margin-top:6px; letter-spacing:0.14em"><small>CERTIFY</small></span></div>
+          <div class="arrow">→</div>
+          <div class="node is-ctl">6<span style="display:block; font-size:20px; margin-top:6px; letter-spacing:0.14em"><small>CONTROL</small></span></div>
+          <div class="arrow">→</div>
+          <div class="node">7<span style="display:block; font-size:20px; margin-top:6px; letter-spacing:0.14em"><small>VERIFY</small></span></div>
+        </div>
+        <div style="height: 60px"></div>
+        <p class="cap" data-guide="loopcap">A continuous feed: forecast → risk-certified → quota — and back</p>
+      </div>
+    </div>
+
+    <!-- Scene 4 — Ingestion -->
+    <div id="ingestion" class="scene" data-composition-id="ingestion" data-start="23" data-duration="8" data-label="Ingestion" data-width="1920" data-height="1080">
+      <div class="clip-inner">
+        <div class="eyebrow"><span class="dot"></span>Layer 1 — Ingestion</div>
+        <div style="height: 44px"></div>
+        <h1 class="headline">THE SYSTEM READS FOUR SATELLITES AND 16 FIELD WELLS</h1>
+        <div style="height: 78px"></div>
+        <div style="display:flex; flex-wrap: wrap; gap: 34px; max-width: 1680px">
+          <div class="chip is-hot" data-anim="true" id="src-grace" style="width: 420px">
+            <span class="cn">GRACE</span>
+            <span class="cc">Gravity · mascons</span>
+          </div>
+          <div class="chip frag" id="src-01" style="width: 420px">
+            <span class="cn">CHIRPS</span>
+            <span class="cc">Precipitation</span>
+          </div>
+          <div class="chip frag" id="src-02" style="width: 420px">
+            <span class="cn">MODIS</span>
+            <span class="cc">Evapotranspiration</span>
+          </div>
+          <div class="chip frag" id="src-03" style="width: 420px">
+            <span class="cn">GLDAS</span>
+            <span class="cc">Soil moisture · snow</span>
+          </div>
+          <div class="chip frag" id="src-04" style="width: 760px">
+            <span class="cn">16 Piezometer Wells</span>
+            <span class="cc">Ground-truth head levels</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scene 5 — Downscaling -->
+    <div id="downscale" class="scene" data-composition-id="downscale" data-start="31" data-duration="7" data-label="Downscaling" data-width="1920" data-height="1080">
+      <div class="clip-inner">
+        <div class="eyebrow"><span class="dot"></span>Layer 2 — Spatial downscaling</div>
+        <div style="height: 44px"></div>
+        <h1 class="headline">GRACE'S 300 KM PIXELS BECOME A 4 KM DECISION GRID</h1>
+        <div style="height: 70px"></div>
+        <div style="display:flex; flex-wrap: wrap; gap: 30px; max-width: 1680px">
+          <div class="chip frag" id="ds-01" style="width: 470px">
+            <span class="cn">Ensemble regression</span>
+            <span class="cc">RandomForest · XGBoost</span>
+          </div>
+          <div class="chip frag" id="ds-02" style="width: 470px">
+            <span class="cn">Scale preservation</span>
+            <span class="cc">Mascon mass conserved</span>
+          </div>
+          <div class="chip frag" id="ds-03" style="width: 470px">
+            <span class="cn">GWSA → GWLA</span>
+            <span class="cc">Storage ÷ specific yield</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scene 6 — Vadose -->
+    <div id="vadose" class="scene" data-composition-id="vadose" data-start="38" data-duration="7" data-label="Vadose delay" data-width="1920" data-height="1080">
+      <div class="clip-inner">
+        <div class="eyebrow"><span class="dot"></span>Layer 3 — Vadose zone physics</div>
+        <div style="height: 44px"></div>
+        <h1 class="headline">RAIN TODAY IS RECHARGE MONTHS FROM NOW — WE MODEL THE <span class="accent">LAG</span></h1>
+        <div style="height: 44px"></div>
+        <div style="display:flex; gap: 90px; align-items: center">
+          <svg width="900" height="430" viewBox="0 0 900 430" aria-hidden="true">
+            <line x1="40" y1="380" x2="880" y2="380" stroke="#525252" stroke-width="2" />
+            <line x1="40" y1="380" x2="40" y2="30" stroke="#525252" stroke-width="2" />
+            <path d="M40,380 C180,380 230,150 320,130 C430,108 520,150 610,228 C700,306 780,350 880,372"
+              fill="none" stroke="#fcfcfc" stroke-width="5" stroke-linecap="round" />
+            <line x1="320" y1="90" x2="320" y2="380" stroke="#fe1e34" stroke-width="2" stroke-dasharray="7 7" />
+            <text x="300" y="70" fill="#fe1e34" font-size="26" font-family="Georgia, serif" font-style="italic">peak ≈ 2.5–3 mo</text>
+            <text x="60" y="410" fill="#b5b2b2" font-size="26" font-family="system-ui, sans-serif">τ (lag, months)</text>
+            <text x="50" y="50" fill="#b5b2b2" font-size="26" font-family="system-ui, sans-serif">κ(τ; θ_v)</text>
+          </svg>
+          <div style="max-width: 660px">
+            <p class="floorNote">
+              A Gamma convolution kernel κ(τ; θ<sub>v</sub>) spreads surface input across the soil column,
+              producing an effective recharge R<sub>eff</sub>(t) that arrives <b>months later</b>.
+            </p>
+            <div style="height: 26px"></div>
+            <p class="cap">Kernel-driven vertical flow — not an assumption</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scene 7 — Surrogates -->
+    <div id="surrogates" class="scene" data-composition-id="surrogates" data-start="45" data-duration="8" data-label="Surrogates" data-width="1920" data-height="1080">
+      <div class="clip-inner">
+        <div class="eyebrow"><span class="dot"></span>Layer 4 — Scientific ML surrogates</div>
+        <div style="height: 44px"></div>
+        <h1 class="headline">THREE SURROGATES LEARN THE PHYSICS OF FLOW</h1>
+        <div style="height: 66px"></div>
+        <div style="display:flex; gap: 40px; max-width: 1680px">
+          <div class="modelCard frag" id="sur-01" style="width: 530px; height: 330px">
+            <span class="mn">GNN-LSTM</span>
+            <span class="ml">Graph message-passing across well adjacency, conditioned on static geophysics (K, S<sub>y</sub>, z_bedrock).</span>
+          </div>
+          <div class="modelCard frag" id="sur-02" style="width: 530px; height: 330px">
+            <span class="mn">PINN</span>
+            <span class="ml">Dupuit-Boussinesq PDE residuals via autograd — physics regularizes the learned head field.</span>
+          </div>
+          <div class="modelCard frag" id="sur-03" style="width: 530px; height: 330px">
+            <span class="mn">FNO</span>
+            <span class="ml">Spectral convolutions in Fourier space — resolution-invariant, discretization-free.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scene 8 — Conformal -->
+    <div id="conformal" class="scene" data-composition-id="conformal" data-start="53" data-duration="8" data-label="Conformal UQ" data-width="1920" data-height="1080">
+      <div class="clip-inner">
+        <div class="eyebrow"><span class="dot"></span>Layer 5 — Split conformal UQ</div>
+        <div style="height: 44px"></div>
+        <h1 class="headline">EVERY FORECAST SHIPS WITH A PROVABLE SAFETY MARGIN</h1>
+        <div style="height: 78px"></div>
+        <div style="display:flex; gap: 60px; align-items: center">
+          <div class="chip is-hot" style="width: 560px; height: 280px; justify-content: center">
+            <span class="cn">q̂</span>
+            <span class="cc" style="font-size: 18px">empirical 95th percentile of held-out errors</span>
+            <div style="height: 8px"></div>
+            <span class="cn" style="font-size: 40px">h<sub>min</sub> + q̂</span>
+            <span class="cc" style="font-size: 18px">the certified floor for head level</span>
+          </div>
+          <div style="max-width: 760px">
+            <p class="frag" id="cf-01">
+              Calibrate <b>once</b> on held-out surrogate errors — no distributional assumptions
+              about forecasts or noise (<span style="color:#b5b2b2">α = 0.05</span>).
+            </p>
+            <div style="height: 30px"></div>
+            <p class="frag" id="cf-02">
+              The floor becomes <span style="color:#fe1e34"><b>h<sub>min</sub> + q̂</b></span> — safety you can
+              prove to a regulator, not hope for.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scene 9 — Control -->
+    <div id="control" class="scene" data-composition-id="control" data-start="61" data-duration="8" data-label="Optimal control" data-width="1920" data-height="1080">
+      <div class="clip-inner">
+        <div class="eyebrow"><span class="dot"></span>Layer 6 — Chance-constrained MPC</div>
+        <div style="height: 44px"></div>
+        <h1 class="headline">PUMPING QUOTAS SOLVED 12 MONTHS AHEAD — HEAD FLOORS GUARANTEED</h1>
+        <div style="height: 66px"></div>
+        <div style="display:flex; gap: 90px; align-items: center">
+          <svg width="920" height="420" viewBox="0 0 920 420" aria-hidden="true">
+            <rect x="40" y="40" width="840" height="340" fill="#0d0d0c" stroke="#3a3a3a" stroke-width="2" />
+            <text x="60" y="62" fill="#b5b2b2" font-size="26" font-family="system-ui, sans-serif">head level G (m)</text>
+            <line x1="70" y1="340" x2="860" y2="340" stroke="#525252" stroke-width="2" />
+            <rect x="70" y="308" width="840" height="32" fill="#39100f" />
+            <line x1="70" y1="308" x2="860" y2="308" stroke="#fe1e34" stroke-width="3" />
+            <text x="70" y="378" fill="#fe1e34" font-size="24" font-family="system-ui, sans-serif">floor = h_min + q̂</text>
+            <text x="745" y="378" fill="#b5b2b2" font-size="24" font-family="system-ui, sans-serif">× 12 months</text>
+            <rect x="110" y="238" width="48" height="102" fill="#fcfcfc" />
+            <rect x="190" y="252" width="48" height="88" fill="#fcfcfc" />
+            <rect x="270" y="246" width="48" height="94" fill="#fcfcfc" />
+            <rect x="350" y="220" width="48" height="120" fill="#fcfcfc" />
+            <rect x="430" y="230" width="48" height="110" fill="#fcfcfc" />
+            <rect x="510" y="216" width="48" height="124" fill="#e6e6e6" />
+            <rect x="590" y="226" width="48" height="114" fill="#fcfcfc" />
+            <rect x="670" y="240" width="48" height="100" fill="#fcfcfc" />
+            <rect x="750" y="232" width="48" height="108" fill="#fcfcfc" />
+            <rect x="150" y="180" width="24" height="160" fill="none" stroke="#fe1e34" stroke-width="2" stroke-dasharray="5 5" />
+          </svg>
+          <div style="max-width: 560px">
+            <p class="floorNote">
+              Sequential Convex Programming keeps <b>G<sub>k</sub> ≥ h<sub>min</sub> + q̂</b> across the horizon
+              while staying inside trust regions. Below the floor is the unsafe zone —<span class="serif"> marked in red.</span>
+            </p>
+            <div style="height: 26px"></div>
+            <p class="cap">Constraint G_k ≥ h_min + q̂ held with probability ≥ 1−α</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scene 10 — Dashboard -->
+    <div id="dashboard" class="scene" data-composition-id="dashboard" data-start="69" data-duration="8" data-label="Dashboard" data-width="1920" data-height="1080">
+      <div class="clip-inner">
+        <div class="eyebrow"><span class="dot"></span>Layer 7 — Decision support</div>
+        <div style="height: 44px"></div>
+        <h1 class="headline">POLICY-MAKERS GET A LIVE DASHBOARD, ALERTS, AND PRINTER-READY REPORTS</h1>
+        <div style="height: 70px"></div>
+        <div style="display:flex; gap: 40px; max-width: 1680px">
+          <div class="chip" style="width: 560px; height: 260px; justify-content: center">
+            <span class="cn" style="font-size: 40px; color: #fe1e34">CRITICAL</span>
+            <span class="cc" style="font-size: 20px">Well CGWBHU2335 — time to depletion</span>
+          </div>
+          <div class="chip" style="width: 560px; height: 260px; justify-content: center">
+            <span class="cn">98% Health</span>
+            <span class="cc" style="font-size: 20px">network head above certified floors</span>
+          </div>
+          <div class="chip" style="width: 560px; height: 260px; justify-content: center">
+            <span class="cn">LaTeX Report</span>
+            <span class="cc" style="font-size: 20px">printable assessment · point queries</span>
+          </div>
+        </div>
+        <div style="height: 40px"></div>
+        <p class="floorNote">Four hydro regions preset: <span style="color:#b5b2b2">Illinois · High Plains · Ganges · North German Basin</span></p>
+      </div>
+    </div>
+
+    <!-- Branch A — Slide 1 -->
+    <div id="grace-1" class="scene" data-composition-id="grace-1" data-start="77" data-duration="7" data-label="What GRACE measures" data-width="1920" data-height="1080">
+      <svg class="ghost" data-layout-allow-overflow viewBox="0 0 1920 1080"
+        style="right: -90px; top: -170px; width: 640px; height: 640px" aria-hidden="true">
+        <circle cx="320" cy="320" r="270" fill="none" stroke="#1b1a19" stroke-width="3" />
+        <circle cx="320" cy="320" r="220" fill="none" stroke="#191817" stroke-width="2" />
+      </svg>
+      <div class="clip-inner" style="z-index: 1">
+        <div class="eyebrow"><span class="dot"></span>Branch — Understand GRACE</div>
+        <div style="height: 44px"></div>
+        <h1 class="headline">GRACE MAPS EARTH'S GRAVITY — AND GRAVITY TRACKS WATER</h1>
+        <div style="height: 64px"></div>
+        <div class="itemRow"><span class="idx">a</span>Mascons: monthly gravity lumps ~<b>300 km</b> wide</div>
+        <div style="height: 40px"></div>
+        <div class="itemRow"><span class="idx">b</span>GWSA: gravity storage anomaly isolated from land and ocean</div>
+        <div style="height: 40px"></div>
+        <div class="itemRow"><span class="idx">c</span>GWLA: anomaly ÷ specific yield → <b>water level</b> change</div>
+      </div>
+    </div>
+
+    <!-- Branch A — Slide 2 -->
+    <div id="grace-2" class="scene" data-composition-id="grace-2" data-start="84" data-duration="7" data-label="Why downscale" data-width="1920" data-height="1080">
+      <div class="clip-inner">
+        <div class="eyebrow"><span class="dot"></span>Branch — Why downscale</div>
+        <div style="height: 44px"></div>
+        <h1 class="headline">MASCONS AVERAGE HUNDREDS OF KM — TOO COARSE TO ACT ON ALONE</h1>
+        <div style="height: 72px"></div>
+        <p class="floorNote" style="max-width: 1500px">
+          A town cannot manage a 300 km blur. The pipeline's downscaler
+          <b>reconstructs the field at a 4 km grid</b> — conserving total mass while bringing
+          the anomaly back to the scale of a single watershed.
+        </p>
+        <div style="height: 60px"></div>
+        <p class="cap">← back returns you to the ingestion slide</p>
+      </div>
+    </div>
+
+    <!-- Branch B — Slide 1 -->
+    <div id="conformal-1" class="scene" data-composition-id="conformal-1" data-start="91" data-duration="7" data-label="Calibration quantile" data-width="1920" data-height="1080">
+      <div class="clip-inner">
+        <div class="eyebrow"><span class="dot"></span>Branch — Split conformal</div>
+        <div style="height: 44px"></div>
+        <h1 class="headline">A QUANTILE PROVEN FROM DATA — NEVER ASSUMED</h1>
+        <div style="height: 74px"></div>
+        <div style="display:flex; gap: 90px; align-items: center">
+          <div class="chip" style="width: 560px; height: 250px; justify-content: center">
+            <span class="cn" style="font-size: 42px">q̂ = Q<sub>95%</sub>(|y − ŷ|)</span>
+            <span class="cc" style="font-size: 18px">over a held-out calibration fold</span>
+          </div>
+          <p class="floorNote" style="max-width: 760px">
+            No Gaussian noise, no distributional claim — just <b>the empirical residual quantile</b>.
+            Coverage holds with probability 1 − α by construction.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Branch B — Slide 2 -->
+    <div id="conformal-2" class="scene" data-composition-id="conformal-2" data-start="98" data-duration="7" data-label="Floor in the optimizer" data-width="1920" data-height="1080">
+      <div class="clip-inner">
+        <div class="eyebrow"><span class="dot"></span>Branch — Conformal in control</div>
+        <div style="height: 44px"></div>
+        <h1 class="headline">UNCERTAINTY BECOMES A HARD CONSTRAINT IN THE OPTIMIZER</h1>
+        <div style="height: 76px"></div>
+        <p class="floorNote" style="max-width: 1500px">
+          The true head stays above <b>h<sub>min</sub> + q̂</b> at least 95% of the time. Forecast
+          doubt is no longer a guess — it is <span style="color:#fe1e34">the price of the floor</span>.
+        </p>
+        <div style="height: 60px"></div>
+        <p class="cap">← back returns you to the conformal slide</p>
+      </div>
+    </div>
+
+    <script>
+      window.__timelines = window.__timelines || {};
+
+      function reg(id, build) {
+        var tl = gsap.timeline({ paused: true });
+        build(tl);
+        window.__timelines[id] = tl;
+      }
+
+      function frag(tl, sel, t) {
+        tl.from(sel, { opacity: 0, y: 26, duration: 0.45, ease: "power2.out" }, t);
+      }
+
+      /* cover */
+      reg("cover", function (tl) {
+        tl.from("#cover .eyebrow", { opacity: 0, y: 18, duration: 0.4 }, 0.2);
+        tl.from("#cover h1", { opacity: 0, y: 30, duration: 0.55, ease: "power2.out" }, 0.4);
+        tl.from("#cover .floorNote", { opacity: 0, y: 20, duration: 0.45 }, 1.0);
+      });
+
+      /* problem — fragments */
+      reg("problem", function (tl) {
+        frag(tl, "#prob-01", 7.0);
+        frag(tl, "#prob-02", 9.0);
+        frag(tl, "#prob-03", 11.5);
+      });
+
+      /* pipeline */
+      reg("pipeline", function (tl) {
+        tl.from("#pipeline .eyebrow", { opacity: 0, y: 18, duration: 0.4 }, 15.2);
+        tl.from("#pipeline h1", { opacity: 0, y: 30, duration: 0.55 }, 15.4);
+        tl.from("#pipeline .node", { opacity: 0, y: 26, stagger: 0.09, duration: 0.4 }, 15.9);
+        tl.from("#pipeline .arrow", { opacity: 0, stagger: 0.09, duration: 0.2 }, 15.95);
+        tl.from("#pipeline .cap", { opacity: 0, duration: 0.4 }, 18.2);
+      });
+
+      /* ingestion — fragments */
+      reg("ingestion", function (tl) {
+        frag(tl, "#src-01", 24.2);
+        frag(tl, "#src-02", 26.4);
+        frag(tl, "#src-03", 28.6);
+        frag(tl, "#src-04", 28.6);
+      });
+
+      /* downscale — fragments */
+      reg("downscale", function (tl) {
+        frag(tl, "#ds-01", 32.4);
+        frag(tl, "#ds-02", 34.8);
+        frag(tl, "#ds-03", 34.8);
+      });
+
+      /* vadose */
+      reg("vadose", function (tl) {
+        tl.from("#vadose .eyebrow", { opacity: 0, y: 18, duration: 0.4 }, 38.2);
+        tl.from("#vadose h1", { opacity: 0, y: 30, duration: 0.55 }, 38.4);
+        tl.from("#vadose svg", { opacity: 0, duration: 0.6 }, 38.9);
+        tl.from("#vadose .floorNote", { opacity: 0, y: 20, duration: 0.45 }, 39.6);
+        tl.from("#vadose .cap", { opacity: 0, duration: 0.4 }, 41.0);
+      });
+
+      /* surrogates — fragments */
+      reg("surrogates", function (tl) {
+        tl.from("#surrogates .eyebrow", { opacity: 0, y: 18, duration: 0.4 }, 45.2);
+        tl.from("#surrogates h1", { opacity: 0, y: 30, duration: 0.55 }, 45.4);
+        frag(tl, "#sur-01", 46.4);
+        frag(tl, "#sur-02", 49.2);
+        frag(tl, "#sur-03", 49.2);
+      });
+
+      /* conformal — fragments */
+      reg("conformal", function (tl) {
+        frag(tl, "#cf-01", 55.0);
+        frag(tl, "#cf-02", 57.5);
+      });
+
+      /* control */
+      reg("control", function (tl) {
+        tl.from("#control .eyebrow", { opacity: 0, y: 18, duration: 0.4 }, 61.2);
+        tl.from("#control h1", { opacity: 0, y: 30, duration: 0.55 }, 61.4);
+        tl.from("#control svg", { opacity: 0, duration: 0.6 }, 61.9);
+        tl.from("#control .floorNote", { opacity: 0, y: 20, duration: 0.45 }, 62.8);
+        tl.from("#control .cap", { opacity: 0, duration: 0.4 }, 64.2);
+      });
+
+      /* dashboard */
+      reg("dashboard", function (tl) {
+        tl.from("#dashboard .eyebrow", { opacity: 0, y: 18, duration: 0.4 }, 69.2);
+        tl.from("#dashboard h1", { opacity: 0, y: 30, duration: 0.55 }, 69.4);
+        tl.from("#dashboard .chip", { opacity: 0, y: 26, stagger: 0.12, duration: 0.45 }, 69.9);
+        tl.from("#dashboard .floorNote", { opacity: 0, y: 20, duration: 0.45 }, 71.6);
+      });
+
+      /* branch A */
+      reg("grace-1", function (tl) {
+        tl.from("#grace-1 .eyebrow", { opacity: 0, y: 18, duration: 0.4 }, 77.2);
+        tl.from("#grace-1 h1", { opacity: 0, y: 30, duration: 0.55 }, 77.4);
+        tl.from("#grace-1 .itemRow", { opacity: 0, x: -28, stagger: 0.12, duration: 0.45 }, 78.0);
+      });
+      reg("grace-2", function (tl) {
+        tl.from("#grace-2 .eyebrow", { opacity: 0, y: 18, duration: 0.4 }, 84.2);
+        tl.from("#grace-2 h1", { opacity: 0, y: 30, duration: 0.55 }, 84.4);
+        tl.from("#grace-2 .floorNote", { opacity: 0, y: 24, duration: 0.5 }, 85.0);
+        tl.from("#grace-2 .cap", { opacity: 0, duration: 0.4 }, 87.2);
+      });
+
+      /* branch B */
+      reg("conformal-1", function (tl) {
+        tl.from("#conformal-1 .eyebrow", { opacity: 0, y: 18, duration: 0.4 }, 91.2);
+        tl.from("#conformal-1 h1", { opacity: 0, y: 30, duration: 0.55 }, 91.4);
+        tl.from("#conformal-1 .chip", { opacity: 0, y: 24, duration: 0.5 }, 92.0);
+        tl.from("#conformal-1 .floorNote", { opacity: 0, y: 20, duration: 0.45 }, 92.6);
+      });
+      reg("conformal-2", function (tl) {
+        tl.from("#conformal-2 .eyebrow", { opacity: 0, y: 18, duration: 0.4 }, 98.2);
+        tl.from("#conformal-2 h1", { opacity: 0, y: 30, duration: 0.55 }, 98.4);
+        tl.from("#conformal-2 .floorNote", { opacity: 0, y: 24, duration: 0.5 }, 99.0);
+        tl.from("#conformal-2 .cap", { opacity: 0, duration: 0.4 }, 101.4);
+      });
+    </script>
+
+    <script>
+      (function () {
+        var FPS = 30;
+        var totalSeconds = 105;
+        var totalFrames = totalSeconds * FPS;
+        var scenes = [
+          { id: "cover", start: 0, duration: 6 },
+          { id: "problem", start: 6, duration: 9 },
+          { id: "pipeline", start: 15, duration: 8 },
+          { id: "ingestion", start: 23, duration: 8 },
+          { id: "downscale", start: 31, duration: 7 },
+          { id: "vadose", start: 38, duration: 7 },
+          { id: "surrogates", start: 45, duration: 8 },
+          { id: "conformal", start: 53, duration: 8 },
+          { id: "control", start: 61, duration: 8 },
+          { id: "dashboard", start: 69, duration: 8 },
+          { id: "grace-1", start: 77, duration: 7 },
+          { id: "grace-2", start: 84, duration: 7 },
+          { id: "conformal-1", start: 91, duration: 7 },
+          { id: "conformal-2", start: 98, duration: 7 }
+        ];
+
+        var activeId = null;
+        var revealed = {};
+
+        var FRAGS = {
+          problem: [
+            ["#prob-01", 7.0],
+            ["#prob-02", 9.0],
+            ["#prob-03", 11.5]
+          ],
+          ingestion: [
+            ["#src-01", 24.2],
+            ["#src-02", 26.4],
+            ["#src-03", 28.6],
+            ["#src-04", 28.6]
+          ],
+          downscale: [
+            ["#ds-01", 32.4],
+            ["#ds-02", 34.8],
+            ["#ds-03", 34.8]
+          ],
+          surrogates: [
+            ["#sur-01", 46.4],
+            ["#sur-02", 49.2],
+            ["#sur-03", 49.2]
+          ],
+          conformal: [
+            ["#cf-01", 55.0],
+            ["#cf-02", 57.5]
+          ]
+        };
+
+        var ENTRANCES = {
+          cover: ".eyebrow, h1, .floorNote",
+          problem: ".eyebrow, h1",
+          pipeline: ".eyebrow, h1, .node, .arrow, .cap",
+          ingestion: ".eyebrow, h1",
+          downscale: ".eyebrow, h1",
+          vadose: ".eyebrow, h1, svg, .floorNote, .cap",
+          surrogates: ".eyebrow, h1",
+          conformal: ".eyebrow, h1, .chip.is-hot",
+          control: ".eyebrow, h1, svg, .floorNote, .cap",
+          dashboard: ".eyebrow, h1, .chip, .floorNote",
+          "grace-1": ".eyebrow, h1, .itemRow",
+          "grace-2": ".eyebrow, h1, .floorNote, .cap",
+          "conformal-1": ".eyebrow, h1, .chip, .floorNote",
+          "conformal-2": ".eyebrow, h1, .floorNote, .cap"
+        };
+
+        function sceneAt(t) {
+          for (var i = 0; i < scenes.length; i++) {
+            var s = scenes[i];
+            if (t >= s.start && t < s.start + s.duration) return s;
+          }
+          return scenes[0];
+        }
+
+        function fadeIn(el) {
+          if (typeof gsap !== "undefined") {
+            gsap.fromTo(
+              el,
+              { opacity: 0, y: 26 },
+              { opacity: 1, y: 0, duration: 0.45, ease: "power2.out", overwrite: "auto" }
+            );
+          } else {
+            el.style.opacity = 1;
+            el.style.transform = "translateY(0)";
+          }
+        }
+
+        function resetEl(el) {
+          if (el) {
+            if (typeof gsap !== "undefined") gsap.killTweensOf(el);
+            el.style.opacity = "";
+            el.style.transform = "";
+          }
+        }
+
+        function hideScene(id) {
+          var el = document.getElementById(id);
+          if (el) el.classList.remove("is-active");
+          (FRAGS[id] || []).forEach(function (fr) {
+            resetEl(document.querySelector(fr[0]));
+          });
+          revealed[id] = {};
+        }
+
+        function enterScene(id) {
+          var el = document.getElementById(id);
+          if (!el) return;
+          el.classList.add("is-active");
+          var entrySel = ENTRANCES[id];
+          if (entrySel) {
+            var nodes = el.querySelectorAll(entrySel);
+            for (var i = 0; i < nodes.length; i++) fadeIn(nodes[i]);
+          }
+          revealed[id] = {};
+        }
+
+        function driveTo(t) {
+          var scene = sceneAt(t);
+          if (scene.id !== activeId) {
+            if (activeId) hideScene(activeId);
+            activeId = scene.id;
+            enterScene(scene.id);
+          }
+          var frags = FRAGS[scene.id] || [];
+          for (var i = 0; i < frags.length; i++) {
+            var fr = frags[i];
+            var key = fr[0] + "@" + fr[1];
+            if (t >= fr[1] && !revealed[scene.id][key]) {
+              revealed[scene.id][key] = true;
+              var el = document.querySelector(fr[0]);
+              if (el) fadeIn(el);
+            }
+          }
+        }
+
+        window.__player = {
+          getDuration: function () {
+            return totalSeconds;
+          },
+          seek: function (t) {
+            driveTo(t);
+          },
+          play: function () {},
+          pause: function () {},
+          time: function () {
+            return totalSeconds;
+          }
+        };
+
+        driveTo(0);
+
+        function postTimeline() {
+          try {
+            parent.postMessage(
+              {
+                source: "hf-preview",
+                type: "timeline",
+                durationInFrames: totalFrames,
+                durationSeconds: totalSeconds,
+                scenes: scenes
+              },
+              "*"
+            );
+          } catch (e) {}
+        }
+
+        if (document.readyState === "complete") {
+          setTimeout(postTimeline, 50);
+        } else {
+          window.addEventListener("load", function () {
+            setTimeout(postTimeline, 50);
+          });
+        }
+      })();
+    </script>
+  </body>
+</html>

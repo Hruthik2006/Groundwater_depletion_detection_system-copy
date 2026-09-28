@@ -24,6 +24,7 @@ class SCPChanceConstrainedMPC:
         alpha: float = 0.05,
         w_energy: float = 1.0,
         w_head: float = 5.0,
+        sigma_slack: float = 1000.0,
         delta_0: float = 1.5,
         eta_expand: float = 1.25,
         eta_shrink: float = 0.25,
@@ -38,6 +39,7 @@ class SCPChanceConstrainedMPC:
         self.alpha = alpha
         self.w_energy = w_energy
         self.w_head = w_head
+        self.sigma_slack = sigma_slack
         
         # SCP Hyperparameters
         self.delta_0 = delta_0
@@ -182,7 +184,7 @@ class SCPChanceConstrainedMPC:
                 # Objective cost: energy cost + head deviation + heavy penalty on safety violation
                 cost_energy = self.w_energy * cp.sum(E_nom[k] + dE[k])
                 cost_head = self.w_head * cp.sum_squares(G_nom[k + 1] + dG[k + 1] - self.h_target)
-                cost_slack = 1000.0 * cp.sum(xi[k])
+                cost_slack = self.sigma_slack * cp.sum(xi[k])
                 cost_terms.append(cost_energy + cost_head + cost_slack)
 
             objective = cp.Minimize(cp.sum(cost_terms))

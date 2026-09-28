@@ -3,18 +3,30 @@ import glob
 import numpy as np
 import pandas as pd
 import logging
-from typing import Dict, Any, Tuple, Optional, List
+from typing import Dict, Any, Tuple, Optional
+from .base_provider import BaseDataProvider
 
 logger = logging.getLogger(__name__)
 
 
-class DWLRDataProvider:
+class DWLRDataProvider(BaseDataProvider):
     """
     Real Central Ground Water Board (CGWB) DWLR Dataset Provider.
     Parses real daily/periodic well observations from DWLR CSV datasets,
     applies robust modified z-score outlier screening (|z| > 6.0 via median & MAD),
     handles station gap interpolation, and provides formatted piezometric time series.
+
+    Honest seam: the hydromet channel carries genuine CGWB well observations;
+    the raster and static-geophysics channels are calibrated synthetic replicas
+    (the dataset ships no matched GRACE/CHIRPS tiles).
     """
+
+    capabilities: Dict[str, str] = {
+        "raster": "synthetic",
+        "hydromet": "dwlr",
+        "static": "synthetic",
+    }
+    is_synthetic: bool = False
 
     def __init__(
         self,
@@ -242,4 +254,9 @@ class DWLRDataProvider:
             "mascon_grid_shape": (2, 2),
             "bounds": [68.0, 8.0, 96.0, 36.0],  # India lat/lon extent
             "data_source": "Central Ground Water Board (CGWB) DWLR Dataset",
+            "serves": self.serves(),
         }
+
+    def set_region(self, region_key: str = "dwlr_cgwb_india", bounds: list = None):
+        """DWLR data is a fixed national well network; region switches are no-ops."""
+        logger.info(f"DWLR provider ignores region preset '{region_key}' (fixed CGWB network).")
