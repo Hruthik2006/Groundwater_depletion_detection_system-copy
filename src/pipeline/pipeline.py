@@ -103,7 +103,7 @@ class Pipeline:
             clay=self.dataset.geophysics.get("clay"),
         )
 
-        self.calibrate_conformal_from_surrogate()
+        self.calibrate_conformal_from_forecast()
 
         # Stale benchmark results no longer apply to the newly built data.
         self.baseline_cache = None
@@ -123,30 +123,36 @@ class Pipeline:
         except Exception as ex:
             print(f"[Pipeline] Failed to load checkpoint weights from {path}: {ex}")
 
+    def calibrate_conformal_from_forecast(self) -> float:
+        """
+        Calibrates the conformal margin on the residuals of the forecast the
+        system actually displays — the analytic head model
+        (G_base + GWLA + recharge_coupling * R_eff) — against the dataset's
+        observed head field (spatial IDW heads), over every grid cell and
+        timestep.
+
+        This replaces the previous calibration against the GNN-LSTM
+        surrogate: that network runs with randomly-initialised weights (no
+        trained checkpoint ships with the repo), so its residuals (~48-57 m)
+        produced a margin that dwarfed the heads themselves and made every
+        derived output (bounds, risk status, quota) meaningless.
+        """
+        c = self.config
+        GWLA = self.downscaling_res["GWLA"]  # (T, H, W)
+        Reff = self.Reff  # (T, H, W)
+        G_obs = self.dataset.spatial_heads()  # (T, H, W)
+
+        H, W = GWLA.shape[1], GWLA.shape[2]
+        rows, cols = np.indices((H, W))
+        G_base = c.g_base_offset + (rows + cols) * c.g_base_slope
+        pred = G_base[None, :, :] + GWLA + c.recharge_coupling * Reff
+
+        return self.conformal.calibrate(G_obs, pred)
+
     def calibrate_conformal_from_surrogate(self) -> float:
-        """Runs a real surrogate forward pass and calibrates the conformal margin."""
-        import torch
-
-        dataset = self.dataset
-        y_true = dataset.heads()  # (num_wells, T)
-        num_wells, T = y_true.shape
-
-        seq_len = min(self.config.seq_len, T - 1)
-        dyn_seq = dataset.dynamic_sequence(
-            self.Reff,
-            self.downscaling_res["GWLA"],
-            seq_len,
-            e_nominal=self.config.nominal_extraction,
-        )
-        static_t = torch.tensor(dataset.static_features(num_wells), dtype=torch.float32)
-        adj = self.surrogate.compute_adjacency(dataset.coords)
-
-        self.surrogate.eval()
-        with torch.no_grad():
-            preds = self.surrogate(dyn_seq, static_t, adj)[0].numpy().T  # (num_wells, seq_len)
-
-        y_true_seq = y_true[:, 1:seq_len + 1]
-        return self.conformal.calibrate(y_true_seq, preds)
+        """Backwards-compatible alias — calibration now targets the displayed
+        analytic forecast (see calibrate_conformal_from_forecast)."""
+        return self.calibrate_conformal_from_forecast()
 
     # --------------------------------------------------------------- context switches
     def set_data_mode(self, mode: str, timesteps: Optional[int] = None, num_wells: Optional[int] = None) -> GroundwaterDataset:
@@ -199,9 +205,29 @@ class Pipeline:
         gwla_series = [float(GWLA[t % T_max, row, col]) for t in range(horizon)]
         reff_series = [float(Reff[t % T_max, row, col]) for t in range(horizon)]
         heads = [G_base + g + c.recharge_coupling * rf for g, rf in zip(gwla_series, reff_series)]
-        lower_bounds = [h - q_hat for h in heads]
+        # Heads live in a datum where observed levels are always >= 0, so the
+        # conformal lower bound is floored at 0 rather than going negative.
+        lower_bounds = [max(0.0, h - q_hat) for h in heads]
         upper_bounds = [h + q_hat for h in heads]
         recommended_quota = max(0.0, (heads[-1] - c.h_min - q_hat) * Sy * c.quota_factor)
+
+        # Dataset geophysics at the query cell (used by the report's
+        # stratigraphy section instead of row/column formulas). Fields the
+        # active provider does not supply come back as None.
+        geo = self.dataset.geophysics
+
+        def _cell(field):
+            arr = geo.get(field)
+            return float(arr[row, col]) if arr is not None else None
+
+        elevation_m = _cell("elevation")
+        depth_to_bedrock_m = _cell("z_bedrock")
+        sand_pct = _cell("sand")
+        silt_pct = _cell("silt")
+        clay_pct = _cell("clay")
+        vadose_mean_months, vadose_modal_months, vadose_alpha, vadose_beta = (
+            self.vadose_engine.delay_stats_at(depth_to_bedrock_m, clay_pct)
+        )
 
         if lower_bounds[-1] < c.critical_hard_threshold:
             risk_status = "CRITICAL"
@@ -227,6 +253,13 @@ class Pipeline:
             "upper_bounds": upper_bounds,
             "recommended_quota": recommended_quota,
             "risk_status": risk_status,
+            "elevation_m": elevation_m,
+            "depth_to_bedrock_m": depth_to_bedrock_m,
+            "soil_texture": {"sand": sand_pct, "silt": silt_pct, "clay": clay_pct},
+            "vadose_mean_delay_months": vadose_mean_months,
+            "vadose_modal_delay_months": vadose_modal_months,
+            "vadose_alpha": vadose_alpha,
+            "vadose_beta": vadose_beta,
         }
 
     def hydrograph_series(self, lat: float, lon: float, horizon: int = 24) -> Dict[str, Any]:
