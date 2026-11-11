@@ -158,7 +158,6 @@ class RealtimeEarthEngineDataProvider(BaseDataProvider):
 
     def _sample_gee_collection(self, collection_id: str, band_name: str, timesteps: int) -> np.ndarray:
         import ee
-        from scipy.ndimage import zoom
 
         if not self.bounds:
             raise ValueError(
@@ -181,24 +180,53 @@ class RealtimeEarthEngineDataProvider(BaseDataProvider):
             raise ValueError(f"No images returned for collection {collection_id}")
 
         H, W = self.grid_shape
-        # Resample to the app grid BEFORE sampleRectangle: at native
-        # resolution fine products (e.g. MODIS 500 m) exceed Earth Engine's
-        # 262144-pixel sampleRectangle limit over a whole region bbox
-        # ("Too many pixels in sample ... Got 939463").
-        scale_deg = max((max_lon - min_lon) / W, (max_lat - min_lat) / H)
+        # Sample by reducing each image over the app's own 16x16 cell grid
+        # (one reduceRegions call per image). sampleRectangle was tried
+        # first and is a dead end here: at native resolution it exceeds
+        # Earth Engine's 262144-pixel limit (MODIS over a region bbox =
+        # 939463 px), and reprojecting before sampling made EE evaluate
+        # the sample at a wildly wrong scale (2.4e12 px). Cell-mean
+        # reduction has no such limit and matches the grid the rest of
+        # the pipeline uses (row 0 = northernmost, as in latlon_to_grid).
+        d_lon = (max_lon - min_lon) / W
+        d_lat = (max_lat - min_lat) / H
+        cells = []
+        for r in range(H):
+            cell_lat1 = max_lat - r * d_lat
+            cell_lat0 = max_lat - (r + 1) * d_lat
+            for c in range(W):
+                cell_lon0 = min_lon + c * d_lon
+                cell_lon1 = min_lon + (c + 1) * d_lon
+                geom = ee.Geometry.Rectangle([cell_lon0, cell_lat0, cell_lon1, cell_lat1])
+                cells.append(ee.Feature(geom, {"row": r, "col": c}))
+        grid_fc = ee.FeatureCollection(cells)
+
+        # Reduction scale (metres): roughly half a cell, clamped to a sane
+        # range so both fine (500 m) and coarse (25 km) products reduce
+        # without excessive pixel counts.
+        mid_lat = np.radians((min_lat + max_lat) / 2.0)
+        cell_m = max(
+            (max_lon - min_lon) * 111320.0 * np.cos(mid_lat),
+            (max_lat - min_lat) * 110540.0,
+        ) / max(H, W)
+        scale_m = float(np.clip(cell_m / 2.0, 1000.0, 30000.0))
+
         rasters = []
         for i in range(min(size, timesteps)):
             img = ee.Image(img_list.get(i))
-            img_grid = img.reproject(crs="EPSG:4326", scale=scale_deg)
-            rect = img_grid.sampleRectangle(region=region, defaultValue=0.0)
-            arr = np.array(rect.get(band_name).getInfo(), dtype=np.float32)
-
-            if arr.shape != (H, W) and arr.size > 0:
-                zoom_factors = (H / arr.shape[0], W / arr.shape[1])
-                arr = zoom(arr, zoom_factors)
-            elif arr.size == 0:
-                arr = np.zeros((H, W))
-
+            reduced = img.reduceRegions(
+                collection=grid_fc,
+                reducer=ee.Reducer.mean(),
+                scale=scale_m,
+                tileScale=4,
+            )
+            data = reduced.getInfo()
+            arr = np.zeros((H, W), dtype=np.float32)
+            for feat in data.get("features", []):
+                props = feat.get("properties", {})
+                v = props.get("mean")
+                if v is not None:
+                    arr[int(props["row"]), int(props["col"])] = float(v)
             rasters.append(arr)
 
         while len(rasters) < timesteps:
