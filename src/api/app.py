@@ -45,6 +45,22 @@ class SystemState:
         self.history_log: List[Dict[str, Any]] = []
         self._mpc_cache: Dict[tuple, Dict[str, Any]] = {}
 
+        # Admin-controlled UI settings, persisted to data/ui_settings.json
+        # so they survive restarts. Currently one flag: whether the data
+        # provenance option is visible in the dashboard's PDF generator
+        # pop-up (the admin dashboard toggles it).
+        _root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        self._ui_settings_path = os.path.join(_root, "data", "ui_settings.json")
+        self.ui_settings: Dict[str, Any] = {"show_provenance_option": True}
+        try:
+            if os.path.exists(self._ui_settings_path):
+                with open(self._ui_settings_path) as _f:
+                    _loaded = json.load(_f)
+                if isinstance(_loaded, dict) and "show_provenance_option" in _loaded:
+                    self.ui_settings["show_provenance_option"] = bool(_loaded["show_provenance_option"])
+        except Exception:
+            pass
+
         # Build the chain once: loads pre-trained weights, downscales,
         # computes effective recharge, recalibrates the conformal predictor
         # against the current data, and stamps the event log.
@@ -54,6 +70,14 @@ class SystemState:
             "SYSTEM_INIT",
             "System initialized with pre-trained dynamic surrogate and real conformal calibration.",
         )
+
+    def save_ui_settings(self):
+        try:
+            os.makedirs(os.path.dirname(self._ui_settings_path), exist_ok=True)
+            with open(self._ui_settings_path, "w") as _f:
+                json.dump(self.ui_settings, _f)
+        except Exception as ex:
+            logger.warning(f"Could not persist UI settings ({ex}).")
 
     # -- live aliases into the pipeline so context switches stay in sync ------
     @property
@@ -253,6 +277,7 @@ def get_system_status():
         # Live GEE ingestion progress (realtime provider only; None for
         # providers that do not report it) — polled by the loading UI.
         "ingestion_progress": getattr(state.data_loader.provider, "progress", None),
+        "ui_settings": dict(state.ui_settings),
     }
 
 
@@ -341,6 +366,7 @@ def view_location_report(
     horizon: int = 12,
     sec_summary: int = 1,
     sec_heatmap: int = 1,
+    sec_provenance: int = 1,
     sec_stratigraphy: int = 1,
     sec_conformal: int = 1,
     horizon_conformal: int = 12,
@@ -452,6 +478,54 @@ def view_location_report(
         GWLA_arr = state.downscaling_res["GWLA"]
         heatmap_raster = GWLA_arr[(h_len - 1) % GWLA_arr.shape[0]].tolist()
 
+    # Data provenance rows: where every variable in this report actually
+    # came from (live Earth Engine sample vs calibrated fallback vs
+    # synthetic benchmark), read from the active provider's last fetch.
+    provenance_rows = None
+    provenance_windows = None
+    if sec_provenance:
+        _mode = state.data_loader.data_mode
+        _src = {}
+        if state.dataset is not None:
+            _src = (state.dataset.metadata or {}).get("variable_sources") or {}
+
+        def _raster_label(code):
+            if code == "live":
+                return "Live — Earth Engine"
+            if code == "synthetic":
+                return "Synthetic benchmark data"
+            if _mode == "dwlr":
+                return "Calibrated synthetic replica"
+            return "Calibrated fallback raster"
+
+        _var_names = [
+            ("P", "Precipitation — P (CHIRPS)"),
+            ("ET", "Evapotranspiration — ET (MODIS)"),
+            ("SMSA", "Soil Moisture — SMSA (GLDAS)"),
+            ("SWEA", "Snow Water Equivalent — SWEA (GLDAS)"),
+            ("CWSA", "Canopy Water Storage — CWSA (GLDAS)"),
+            ("Qs", "Surface Runoff — Qs (GLDAS)"),
+            ("TWSA_native", "Terrestrial Water Storage — TWSA (GRACE)"),
+        ]
+        provenance_rows = [
+            {"variable": _label, "source": _raster_label(_src.get(_key))}
+            for _key, _label in _var_names
+        ]
+        if _mode == "dwlr":
+            _wells_label = "CGWB DWLR observations"
+            _geo_label = "Calibrated synthetic replica"
+        elif _mode == "realtime":
+            _wells_label = "Synthetic fallback (by design)"
+            _geo_label = "Synthetic fallback (by design)"
+        else:
+            _wells_label = "Synthetic benchmark data"
+            _geo_label = "Synthetic benchmark data"
+        provenance_rows.append({"variable": "Piezometer Well Levels", "source": _wells_label})
+        provenance_rows.append({"variable": "Static Geophysics (Sy, K, Bedrock, Elevation)", "source": _geo_label})
+        _lw = getattr(state.data_loader.provider, "last_windows", None)
+        if _lw:
+            provenance_windows = _lw
+
     html_content = render_location_report(
         lat=lat,
         lon=lon,
@@ -470,10 +544,13 @@ def view_location_report(
         chart_series=chart_series,
         heatmap_raster=heatmap_raster,
         heatmap_month=h_len,
+        provenance_rows=provenance_rows,
+        provenance_windows=provenance_windows,
         data_mode=c.data_mode,
         horizon=horizon,
         sec_summary=sec_summary,
         sec_heatmap=sec_heatmap,
+        sec_provenance=sec_provenance,
         sec_stratigraphy=sec_stratigraphy,
         sec_conformal=sec_conformal,
         horizon_conformal=horizon_conformal,
@@ -910,6 +987,26 @@ def recalibrate_conformal_model(alpha: float = 0.05):
         "new_q_hat": new_q_hat,
         "alpha": alpha,
     }
+
+
+class UiSettingsRequest(BaseModel):
+    show_provenance_option: bool
+
+
+@app.get("/api/v1/admin/ui-settings")
+def get_ui_settings():
+    return {"status": "success", "ui_settings": dict(state.ui_settings)}
+
+
+@app.post("/api/v1/admin/ui-settings")
+def update_ui_settings(req: UiSettingsRequest):
+    state.ui_settings["show_provenance_option"] = bool(req.show_provenance_option)
+    state.save_ui_settings()
+    state.log_event(
+        "ADMIN_UI_SETTING",
+        f"Provenance option visibility in the PDF generator pop-up set to {state.ui_settings['show_provenance_option']}.",
+    )
+    return {"status": "success", "ui_settings": dict(state.ui_settings)}
 
 
 @app.get("/api/v1/admin/export_history")
