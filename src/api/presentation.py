@@ -33,10 +33,13 @@ def render_location_report(
     chart_series: Optional[Dict[str, Any]] = None,
     heatmap_raster: Optional[Any] = None,
     heatmap_month: int = 12,
+    provenance_rows: Optional[Any] = None,
+    provenance_windows: Optional[Any] = None,
     data_mode: str = "synthetic",
     horizon: int = 12,
     sec_summary: int = 1,
     sec_heatmap: int = 1,
+    sec_provenance: int = 1,
     sec_stratigraphy: int = 1,
     sec_conformal: int = 1,
     horizon_conformal: int = 12,
@@ -400,6 +403,31 @@ def render_location_report(
 
     if heatmap_block:
         section_blocks.append(heatmap_block)
+
+    # Data provenance: one row per variable, naming the source it was
+    # actually served from for this run (live EE sample / calibrated
+    # fallback / synthetic benchmark), so every number in the report is
+    # auditable against its origin.
+    if sec_provenance and provenance_rows:
+        _prov_rows = "".join(
+            "<tr><td>" + str(r.get("variable", "")) + "</td><td>" + str(r.get("source", "")) + "</td></tr>"
+            for r in provenance_rows
+        )
+        _prov_win = ""
+        if provenance_windows:
+            _prov_win = (
+                '<p style="font-size: 11.5px; color: #475569; margin-top: 6px;">'
+                "Earth Engine monthly windows: " + str(provenance_windows[0]) + " \u2192 " + str(provenance_windows[1]) + "</p>"
+            )
+        section_blocks.append(
+            '<div style="page-break-inside: avoid; margin: 4px 0 8px 0;">'
+            "<h3 style=\"font-family: 'Outfit', sans-serif; color: #1e3a8a; font-size: 13.5px; margin: 14px 0 8px;\">Data Provenance \u2014 Source of Every Variable in This Report</h3>"
+            "<table><thead><tr><th>Variable</th><th>Source</th></tr></thead><tbody>"
+            + _prov_rows +
+            "</tbody></table>"
+            + _prov_win +
+            "</div>"
+        )
 
     # 2. Stratigraphic Hydrogeological Profile
     if sec_stratigraphy:
