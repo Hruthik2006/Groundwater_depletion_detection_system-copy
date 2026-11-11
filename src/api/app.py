@@ -457,6 +457,7 @@ def view_location_report(
         ablation=ablation,
         hydrograph=hydrograph,
         chart_series=chart_series,
+        data_mode=c.data_mode,
         horizon=horizon,
         sec_summary=sec_summary,
         sec_stratigraphy=sec_stratigraphy,
