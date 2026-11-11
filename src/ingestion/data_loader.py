@@ -101,7 +101,7 @@ class GroundwaterDataLoader:
 
     def load_processed_dataset(
         self,
-        timesteps: int = 36,
+        timesteps: int = 12,
         num_wells: int = 16,
     ) -> Dict[str, Any]:
         """
