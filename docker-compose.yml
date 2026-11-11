@@ -1,0 +1,20 @@
+# One-command setup:  docker compose up --build
+# Dashboard: http://localhost:8000   Admin: http://localhost:8000/admin
+services:
+  groundwater:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      # Data channel: synthetic | realtime | dwlr
+      GW_MODE: "${GW_MODE:-synthetic}"
+      # Your Google Earth Engine cloud project (realtime mode only)
+      GEE_PROJECT_ID: "${GEE_PROJECT_ID:-}"
+    volumes:
+      # Persist the Earth Engine raster cache across container restarts
+      - ./cache:/app/cache
+      # Persist admin UI settings (data/ui_settings.json)
+      - ./data:/app/data
+      # Earth Engine credentials created by `earthengine authenticate`
+      # on the host (realtime mode only; harmless in synthetic mode)
+      - ${HOME}/.config/earthengine:/root/.config/earthengine
