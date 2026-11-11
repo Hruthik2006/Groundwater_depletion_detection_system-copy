@@ -30,6 +30,7 @@ def render_location_report(
     baselines: Optional[Dict[str, Any]] = None,
     ablation: Optional[Dict[str, Any]] = None,
     hydrograph: Optional[Dict[str, Any]] = None,
+    chart_series: Optional[Dict[str, Any]] = None,
     horizon: int = 12,
     sec_summary: int = 1,
     sec_stratigraphy: int = 1,
@@ -79,6 +80,31 @@ def render_location_report(
     forecast_risk = str(forecast.get("risk_status", "SAFE"))
 
     labels_conformal = [f"Month {t + 1}" for t in range(h_len)]
+
+    # Prediction 1 chart series. Default: the analytic bundle above. When the
+    # caller supplies the dashboard chart's own series (chart_series — the
+    # Generate-PDF flow in app.js extracts it from the home-screen chart),
+    # the printed chart uses those values verbatim so the PDF matches the
+    # home screen exactly. Table/stats below keep the analytic bundle.
+    chart_labels = labels_conformal
+    chart_heads = heads
+    chart_lower = lower_bounds
+    chart_upper = upper_bounds
+    chart_horizon = horizon_conformal
+    if chart_series and chart_series.get("heads"):
+        chart_labels = [str(x) for x in chart_series["labels"]]
+        chart_heads = [float(x) for x in chart_series["heads"]]
+        chart_lower = (
+            [float(x) for x in chart_series["lower_bounds"]]
+            if chart_series.get("lower_bounds")
+            else [h - q_hat for h in chart_heads]
+        )
+        chart_upper = (
+            [float(x) for x in chart_series["upper_bounds"]]
+            if chart_series.get("upper_bounds")
+            else [h + q_hat for h in chart_heads]
+        )
+        chart_horizon = len(chart_heads)
 
     table_rows = ""
     for t_idx in range(h_len):
@@ -313,7 +339,7 @@ def render_location_report(
         pred_charts_html.append(fr"""
       <div class="chart-container-card">
         <div class="chart-card-header">
-          <span>Prediction 1: Piezometric Head Forecast &amp; Split Conformal Bounds ({horizon_conformal} Months)</span>
+          <span>Prediction 1: Piezometric Head Forecast &amp; Split Conformal Bounds ({chart_horizon} Months)</span>
         </div>
         <canvas id="rptChartConformal" style="width:100%; max-height:220px;"></canvas>
       </div>
@@ -546,11 +572,11 @@ def render_location_report(
           rptCharts.push(new Chart(ctxConf.getContext("2d"), {{
             type: "line",
             data: {{
-              labels: {json.dumps(labels_conformal)},
+              labels: {json.dumps(chart_labels)},
               datasets: [
-                {{ label: "Predicted Head (m)", data: {json.dumps(heads)}, borderColor: "#2563eb", backgroundColor: "rgba(37,99,235,0.08)", borderWidth: 2.5, pointRadius: 3, fill: false, tension: 0.3 }},
-                {{ label: "95% Conformal Lower Bound", data: {json.dumps(lower_bounds)}, borderColor: "rgba(239,68,68,0.8)", borderDash: [4, 3], borderWidth: 1.8, pointRadius: 0, fill: false, tension: 0.3 }},
-                {{ label: "95% Conformal Upper Bound", data: {json.dumps(upper_bounds)}, borderColor: "rgba(16,185,129,0.8)", borderDash: [4, 3], borderWidth: 1.8, pointRadius: 0, fill: false, tension: 0.3 }}
+                {{ label: "Predicted Head (m)", data: {json.dumps(chart_heads)}, borderColor: "#2563eb", backgroundColor: "rgba(37,99,235,0.08)", borderWidth: 2.5, pointRadius: 3, fill: false, tension: 0.3 }},
+                {{ label: "95% Conformal Lower Bound", data: {json.dumps(chart_lower)}, borderColor: "rgba(239,68,68,0.8)", borderDash: [4, 3], borderWidth: 1.8, pointRadius: 0, fill: false, tension: 0.3 }},
+                {{ label: "95% Conformal Upper Bound", data: {json.dumps(chart_upper)}, borderColor: "rgba(16,185,129,0.8)", borderDash: [4, 3], borderWidth: 1.8, pointRadius: 0, fill: false, tension: 0.3 }}
               ]
             }},
             options: {{ responsive: true, animation: false, plugins: {{ legend: {{ labels: {{ font: {{ size: 10 }} }} }} }}, scales: {{ y: {{ title: {{ display: true, text: "Head (m)", font: {{ size: 10 }} }} }}, x: {{ title: {{ display: true, text: "Forecast Month", font: {{ size: 10 }} }} }} }} }}

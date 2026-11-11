@@ -1,4 +1,5 @@
 import os
+import json
 import logging
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
@@ -349,10 +350,19 @@ def view_location_report(
     sec_math: int = 1,
     sec_table: int = 1,
     sec_recommendations: int = 1,
+    labels: Optional[str] = None,
+    vals: Optional[str] = None,
+    lower: Optional[str] = None,
+    upper: Optional[str] = None,
 ):
     """
     Renders a comprehensive, printable HTML Location Groundwater Assessment Report with MathJax LaTeX rendering
     and dynamic selection of analytical prediction suites and custom forecast horizons.
+
+    The optional labels/vals/lower/upper params carry the exact series shown
+    in the dashboard's Prediction 1 chart (the Generate-PDF flow in app.js
+    extracts them from the home chart) so the printed chart matches the home
+    screen. Without them, the chart falls back to the analytic point forecast.
     """
     _ensure_region_for_coords(lat, lon)
     row, col = state.data_loader.lat_lon_to_grid_index(lat, lon)
@@ -365,6 +375,42 @@ def view_location_report(
     h_len = max(1, eff_conformal if sec_conformal else horizon)
 
     forecast = state.pipeline.analytic_forecast(lat, lon, h_len)
+
+    # Validate the optional dashboard chart series (JSON arrays of numbers,
+    # equal lengths, sane size). Anything malformed is ignored, not fatal.
+    chart_series = None
+    if vals:
+        try:
+            _v = json.loads(vals)
+            _lo = json.loads(lower) if lower else None
+            _up = json.loads(upper) if upper else None
+            _lb = json.loads(labels) if labels else None
+
+            def _numlist(x):
+                return (
+                    isinstance(x, list)
+                    and 0 < len(x) <= 60
+                    and all(isinstance(i, (int, float)) and not isinstance(i, bool) for i in x)
+                )
+
+            if (
+                _numlist(_v)
+                and (_lo is None or (_numlist(_lo) and len(_lo) == len(_v)))
+                and (_up is None or (_numlist(_up) and len(_up) == len(_v)))
+            ):
+                chart_series = {
+                    "labels": (
+                        [str(x) for x in _lb]
+                        if isinstance(_lb, list) and len(_lb) == len(_v)
+                        else [f"Month {t + 1}" for t in range(len(_v))]
+                    ),
+                    "heads": [float(x) for x in _v],
+                    "lower_bounds": [float(x) for x in _lo] if _lo is not None else None,
+                    "upper_bounds": [float(x) for x in _up] if _up is not None else None,
+                }
+        except Exception:
+            chart_series = None
+
     region_name = forecast["region_name"]
     q_hat = forecast["conformal_q_hat"]
     Sy = forecast["geophysics"]["Sy"]
@@ -410,6 +456,7 @@ def view_location_report(
         baselines=baselines,
         ablation=ablation,
         hydrograph=hydrograph,
+        chart_series=chart_series,
         horizon=horizon,
         sec_summary=sec_summary,
         sec_stratigraphy=sec_stratigraphy,
