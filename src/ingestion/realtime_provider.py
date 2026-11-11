@@ -80,11 +80,6 @@ class RealtimeEarthEngineDataProvider(BaseDataProvider):
         self.seed = seed
         self.fallback_if_unauthenticated = fallback_if_unauthenticated
         self.ee_initialized = False
-        # Live ingestion progress, surfaced via /api/v1/status so the
-        # dashboard's loading indicator can show what the server is
-        # actually doing during a multi-minute GEE build instead of
-        # sitting on a static message.
-        self.progress = {"message": "", "active": False}
 
         self._fallback_provider = SyntheticDataProvider(
             grid_shape=grid_shape,
@@ -128,22 +123,17 @@ class RealtimeEarthEngineDataProvider(BaseDataProvider):
         meta["serves"] = self.serves()
         return meta
 
-    def _set_progress(self, message: str, active: bool = True):
-        self.progress = {"message": message, "active": active}
-
     def fetch_hydroclimate_rasters(self, timesteps: int = 36) -> Dict[str, np.ndarray]:
         if not self.ee_initialized:
             return self._fallback_provider.fetch_hydroclimate_rasters(timesteps)
 
         logger.info(f"Ingesting live remote sensing rasters via GEE endpoints for region '{self.region_key}' ({self.bounds})...")
-        self._set_progress("Connecting to Google Earth Engine…")
         fallback_rasters = self._fallback_provider.fetch_hydroclimate_rasters(timesteps)
 
         try:
             windows = self._gee_month_windows(timesteps)
         except Exception as e:
             logger.warning(f"Live GEE raster sampling unavailable ({e}). Falling back to calibrated provider rasters.")
-            self._set_progress("Live sampling unavailable — using calibrated data", active=False)
             return fallback_rasters
 
         # Per-variable sampling: one dead asset or band must not take the
@@ -155,19 +145,18 @@ class RealtimeEarthEngineDataProvider(BaseDataProvider):
         # CHIRPS pentads and MODIS 8-day ET are summed to monthly totals.
         gldas = "NASA/GLDAS/V021/NOAH/G025/T3H"
         plan = [
-            ("P", "UCSB-CHG/CHIRPS/PENTAD", "precipitation", "sum", "Precipitation (CHIRPS)"),
-            ("ET", "MODIS/061/MOD16A2", "ET", "sum", "Evapotranspiration (MODIS)"),
-            ("SMSA", gldas, "SoilMoi0_10cm_inst", "mean", "Soil moisture (GLDAS)"),
-            ("SWEA", gldas, "SWE_inst", "mean", "Snow water equivalent (GLDAS)"),
-            ("CWSA", gldas, "CanopInt_inst", "mean", "Canopy water storage (GLDAS)"),
-            ("Qs", gldas, "Qs_acc", "mean", "Surface runoff (GLDAS)"),
+            ("P", "UCSB-CHG/CHIRPS/PENTAD", "precipitation", "sum"),
+            ("ET", "MODIS/061/MOD16A2", "ET", "sum"),
+            ("SMSA", gldas, "SoilMoi0_10cm_inst", "mean"),
+            ("SWEA", gldas, "SWE_inst", "mean"),
+            ("CWSA", gldas, "CanopInt_inst", "mean"),
+            ("Qs", gldas, "Qs_acc", "mean"),
         ]
         rasters: Dict[str, np.ndarray] = {}
         live_vars = []
-        for name, cid, band, agg, label in plan:
+        for name, cid, band, agg in plan:
             try:
-                self._set_progress(f"Sampling {label}…")
-                arr = self._sample_gee_collection(cid, band, windows, agg, label=label)
+                arr = self._sample_gee_collection(cid, band, windows, agg)
                 if not np.any(arr):
                     raise ValueError("sampled raster is all zeros (band/property mismatch?)")
                 rasters[name] = arr
@@ -177,7 +166,6 @@ class RealtimeEarthEngineDataProvider(BaseDataProvider):
                     f"Live GEE sampling for variable {name} unavailable ({e}); "
                     "using the calibrated fallback raster for this variable only."
                 )
-                self._set_progress(f"{label} unavailable — using calibrated data for this variable")
                 rasters[name] = fallback_rasters[name]
 
         # GRACE mascon grids are not sampled from Earth Engine in this
@@ -186,10 +174,6 @@ class RealtimeEarthEngineDataProvider(BaseDataProvider):
 
         means = ", ".join(f"{k}={float(np.mean(v)):.3f}" for k, v in rasters.items())
         logger.info(f"Live GEE ingestion finished. Live variables: {live_vars or 'none'}. Raster means: {means}")
-        self._set_progress(
-            f"Live GEE ingestion finished — {len(live_vars)} of {len(plan)} variables live",
-            active=False,
-        )
         return rasters
 
     def _gee_month_windows(self, timesteps: int):
@@ -227,12 +211,9 @@ class RealtimeEarthEngineDataProvider(BaseDataProvider):
             end = add_months(start, 1)
             windows.append((start.strftime("%Y-%m-%d"), end.strftime("%Y-%m-%d")))
         logger.info(f"Live GEE monthly windows: {windows[0][0]} → {windows[-1][1]} (anchored to slowest collection).")
-        self._set_progress(
-            f"Live GEE monthly windows: {windows[0][0]} → {windows[-1][1]} (anchored to slowest collection)"
-        )
         return windows
 
-    def _sample_gee_collection(self, collection_id: str, band_name: str, windows, agg: str = "mean", label: str = None) -> np.ndarray:
+    def _sample_gee_collection(self, collection_id: str, band_name: str, windows, agg: str = "mean") -> np.ndarray:
         import ee
 
         if not self.bounds:
@@ -283,9 +264,7 @@ class RealtimeEarthEngineDataProvider(BaseDataProvider):
         # the pipeline's monthly timestep — sum for accumulated fluxes
         # (precipitation, ET), mean for state/rate variables (GLDAS).
         rasters = []
-        for i, (start, end) in enumerate(windows):
-            if label:
-                self._set_progress(f"Sampling {label} — month {i + 1} of {len(windows)}")
+        for (start, end) in windows:
             sub = base.filterDate(start, end)
             if sub.size().getInfo() == 0:
                 rasters.append(np.zeros((H, W), dtype=np.float32))
