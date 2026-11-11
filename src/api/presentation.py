@@ -993,7 +993,7 @@ MAPBOX_ACCESS_TOKEN=your_mapbox_token_here</div>
         <table>
           <thead><tr><th>Parameter</th><th>Symbol</th><th>Default</th><th>Operational Role</th></tr></thead>
           <tbody>
-            <tr><td>Planning Horizon</td><td>\(H\)</td><td>12&ndash;36 months</td><td>Rolling control lookahead horizon</td></tr>
+            <tr><td>Planning Horizon</td><td>\(H\)</td><td>6&ndash;12 months</td><td>Rolling control lookahead horizon</td></tr>
             <tr><td>Target Violation Probability</td><td>\(\alpha\)</td><td>0.05 (95% safety)</td><td>Probability bound setting conformal quantile \(\hat{q}\)</td></tr>
             <tr><td>Initial Trust Region</td><td>\(\Delta_0\)</td><td>5% of \(E_\text{max}\)</td><td>Initial step bound for local trajectory updates</td></tr>
             <tr><td>Expansion Factor</td><td>\(\beta_+\)</td><td>1.5</td><td>Multiplier expanding trust region when fidelity is high</td></tr>
