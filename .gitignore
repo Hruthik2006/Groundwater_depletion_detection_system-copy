@@ -46,3 +46,6 @@ models/checkpoints/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Earth Engine raster disk cache (runtime state)
+cache/
