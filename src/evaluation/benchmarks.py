@@ -209,7 +209,7 @@ class FrameworkEvaluator:
         # 5. Custom NumPy LSTM (14-day sliding window)
         G = dataset.heads()
         num_wells, T = G.shape
-        seq_len = 14
+        seq_len = min(14, T // 2)  # paper window is 14; shrink on short series (12-step datasets)
 
         X_seq_list, y_seq_list = [], []
         for i in range(num_wells):
@@ -240,7 +240,7 @@ class FrameworkEvaluator:
         """
         G = dataset.heads()
         num_wells, T = G.shape
-        seq_len = 14
+        seq_len = min(14, T // 2)  # paper window is 14; shrink on short series (12-step datasets)
 
         X_seq_full, X_seq_ablated, y_seq = [], [], []
         for i in range(num_wells):
