@@ -41,6 +41,17 @@
       </div>
 
       <div class="card glass-card" style="border: 1px solid var(--border-color); backdrop-filter: blur(12px); border-radius: 16px; padding: 24px;">
+        <h3 style="font-family: 'Outfit', sans-serif; color: var(--cyan); font-size: 1.15rem; margin-bottom: 6px;">Report Generator Options</h3>
+        <p class="card-sub" style="color: var(--text-sub); font-size: 0.84rem; margin-bottom: 16px;">Control which optional sections the dashboard's PDF generator offers. The setting is saved on the server and applies to every dashboard session.</p>
+
+        <label style="display: flex; align-items: center; gap: 12px; cursor: pointer; font-size: 0.92rem; color: #e2e8f0;">
+          <input type="checkbox" id="adminProvenanceToggle" onchange="toggleProvenanceVisibility(this)" style="width: 20px; height: 20px; accent-color: #2563eb; cursor: pointer;" />
+          <span>Show <strong>Data Provenance Table</strong> option in the PDF generator pop-up</span>
+        </label>
+        <p id="adminProvenanceState" style="color: var(--text-sub); font-size: 0.8rem; margin-top: 10px;">Loading current setting…</p>
+      </div>
+
+      <div class="card glass-card" style="border: 1px solid var(--border-color); backdrop-filter: blur(12px); border-radius: 16px; padding: 24px;">
         <h3 style="font-family: 'Outfit', sans-serif; color: var(--cyan); font-size: 1.15rem; margin-bottom: 6px;">Model Maintenance &amp; Operations</h3>
         <p class="card-sub" style="color: var(--text-sub); font-size: 0.84rem; margin-bottom: 16px;">Trigger on-demand surrogate conformal recalibrations.</p>
 
