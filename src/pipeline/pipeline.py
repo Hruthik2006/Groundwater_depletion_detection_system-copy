@@ -55,6 +55,12 @@ class Pipeline:
         self.vadose_engine = VadoseDelayEngine(alpha_lag=2.5, beta_lag=1.5)
         self.surrogate = GNNLSTMSurrogate(num_wells=c.num_wells)
         self.conformal = SplitConformalPredictor(alpha=c.alpha)
+        # Datum offset between the analytic head model and the observed
+        # head field, measured at calibration time (see
+        # calibrate_conformal_from_forecast). Applied to every analytic
+        # forecast so heads, bounds, risk and quotas all live on the
+        # observed datum that h_min and the critical thresholds use.
+        self.forecast_bias_m = 0.0
         self.mpc = SCPChanceConstrainedMPC(
             horizon=c.horizon,
             num_wells=c.num_wells,
@@ -144,6 +150,18 @@ class Pipeline:
         trained checkpoint ships with the repo), so its residuals (~48-57 m)
         produced a margin that dwarfed the heads themselves and made every
         derived output (bounds, risk status, quota) meaningless.
+
+        The residuals carry a large constant datum offset: the observed
+        head field sits several metres above the analytic model's base
+        level across the whole grid (a level difference, not forecast
+        spread). Calibrating on the raw residuals folds that offset into
+        q_hat (~9.2 m), and the inflated margin then poisons everything
+        downstream — most visibly the extraction quotas, whose safety
+        floor h_min + q_hat (~44.2 m) ends up above the head at most
+        locations, forcing the quota to 0. So the offset is measured and
+        stored as `forecast_bias_m`, the forecast is bias-corrected onto
+        the observed datum, and the margin is calibrated on the demeaned
+        residuals (~3.9 m) — the actual forecast spread.
         """
         c = self.config
         GWLA = self.downscaling_res["GWLA"]  # (T, H, W)
@@ -155,7 +173,8 @@ class Pipeline:
         G_base = c.g_base_offset + (rows + cols) * c.g_base_slope
         pred = G_base[None, :, :] + GWLA + c.recharge_coupling * Reff
 
-        return self.conformal.calibrate(G_obs, pred)
+        self.forecast_bias_m = float(np.mean(G_obs - pred))
+        return self.conformal.calibrate(G_obs, pred + self.forecast_bias_m)
 
     def calibrate_conformal_from_surrogate(self) -> float:
         """Backwards-compatible alias — calibration now targets the displayed
@@ -220,7 +239,7 @@ class Pipeline:
 
         gwla_series = [float(GWLA[t % T_max, row, col]) for t in range(horizon)]
         reff_series = [float(Reff[t % T_max, row, col]) for t in range(horizon)]
-        heads = [G_base + g + c.recharge_coupling * rf for g, rf in zip(gwla_series, reff_series)]
+        heads = [G_base + self.forecast_bias_m + g + c.recharge_coupling * rf for g, rf in zip(gwla_series, reff_series)]
         # Heads live in a datum where observed levels are always >= 0, so the
         # conformal lower bound is floored at 0 rather than going negative.
         lower_bounds = [max(0.0, h - q_hat) for h in heads]
@@ -278,7 +297,7 @@ class Pipeline:
             "vadose_beta": vadose_beta,
         }
 
-    def hydrograph_series(self, lat: float, lon: float, horizon: int = 24) -> Dict[str, Any]:
+    def hydrograph_series(self, lat: float, lon: float, horizon: int = 12) -> Dict[str, Any]:
         """
         Live rainfall / recharge / head series at (lat, lon) for report
         hydrographs, read from the current dataset rasters instead of canned
