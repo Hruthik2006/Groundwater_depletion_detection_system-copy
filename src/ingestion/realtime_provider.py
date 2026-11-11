@@ -1,7 +1,11 @@
 import os
+import json
+import hashlib
 import numpy as np
 import logging
 import threading
+from datetime import datetime, timezone
+from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, Any
 from .base_provider import BaseDataProvider
@@ -33,6 +37,58 @@ except ImportError:
     pass
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Earth Engine raster disk cache.
+#
+# A full live build samples 216 EE windows (~2 minutes even with the
+# parallel sampler). The sampled rasters for a given region + monthly
+# window set are deterministic, so they are cached on disk keyed by
+# (region, bounds, timesteps, windows): reopening the same region with
+# the same windows loads in seconds instead of re-sampling. Only results
+# with at least one live variable are cached — an all-fallback result
+# (e.g. EE temporarily down) must never poison later runs.
+_GEE_CACHE_DIR = Path(__file__).resolve().parents[2] / "cache" / "gee_rasters"
+
+
+def _gee_cache_key(region_key, bounds, timesteps, windows) -> str:
+    payload = {
+        "region": region_key,
+        "bounds": [round(float(b), 4) for b in bounds],
+        "timesteps": int(timesteps),
+        "windows": [[str(a), str(b)] for a, b in windows],
+    }
+    return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()[:24]
+
+
+def _gee_cache_load(key):
+    npz_path = _GEE_CACHE_DIR / f"{key}.npz"
+    meta_path = _GEE_CACHE_DIR / f"{key}.json"
+    if not (npz_path.exists() and meta_path.exists()):
+        return None
+    try:
+        with np.load(npz_path) as z:
+            rasters = {k: z[k] for k in z.files}
+        info = json.loads(meta_path.read_text())
+        return rasters, info
+    except Exception as e:
+        logger.warning(f"Ignoring unreadable GEE raster cache entry {key} ({e}).")
+        return None
+
+
+def _gee_cache_save(key, rasters, sources, windows):
+    try:
+        _GEE_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        np.savez_compressed(_GEE_CACHE_DIR / f"{key}.npz", **rasters)
+        info = {
+            "sources": sources,
+            "windows": [str(windows[0][0]), str(windows[-1][1])],
+            "saved_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        }
+        (_GEE_CACHE_DIR / f"{key}.json").write_text(json.dumps(info))
+        logger.info(f"Cached live GEE rasters under key {key} for reuse.")
+    except Exception as e:
+        logger.warning(f"Could not write GEE raster cache ({e}); continuing without it.")
 
 
 class RealtimeEarthEngineDataProvider(BaseDataProvider):
@@ -87,6 +143,12 @@ class RealtimeEarthEngineDataProvider(BaseDataProvider):
         # static spinner text (a full build takes minutes). Written from
         # the parallel sampler threads, so updates hold a lock.
         self.progress = {"stage": "idle", "message": "", "percent": None}
+        # Per-variable provenance of the most recent fetch: variable ->
+        # "live" (sampled from Earth Engine) or "fallback" (calibrated
+        # raster). Surfaced in dataset metadata, /api/v1/status and the
+        # PDF report's provenance table.
+        self.variable_sources: Dict[str, str] = {}
+        self.last_windows = None
         self._progress_done = 0
         self._progress_total = 0
         self._progress_lock = threading.Lock()
@@ -148,21 +210,41 @@ class RealtimeEarthEngineDataProvider(BaseDataProvider):
             self._progress_total = 0
         if not self.ee_initialized:
             self._set_progress("fallback", "Earth Engine not connected — using calibrated benchmark data")
-            return self._fallback_provider.fetch_hydroclimate_rasters(timesteps)
+            rasters = self._fallback_provider.fetch_hydroclimate_rasters(timesteps)
+            self.variable_sources = {k: "fallback" for k in rasters}
+            self.last_windows = None
+            return rasters
 
         self._set_progress("connecting", "Connecting to Earth Engine…")
 
         logger.info(f"Ingesting live remote sensing rasters via GEE endpoints for region '{self.region_key}' ({self.bounds})...")
-        fallback_rasters = self._fallback_provider.fetch_hydroclimate_rasters(timesteps)
 
         try:
             windows = self._gee_month_windows(timesteps)
         except Exception as e:
             logger.warning(f"Live GEE raster sampling unavailable ({e}). Falling back to calibrated provider rasters.")
             self._set_progress("fallback", "Live sampling unavailable — using calibrated benchmark data")
-            return fallback_rasters
+            rasters = self._fallback_provider.fetch_hydroclimate_rasters(timesteps)
+            self.variable_sources = {k: "fallback" for k in rasters}
+            self.last_windows = None
+            return rasters
 
+        self.last_windows = (str(windows[0][0]), str(windows[-1][1]))
         self._set_progress("windows", f"Live GEE monthly windows: {windows[0][0]} → {windows[-1][1]}")
+
+        # Disk cache: identical region + windows were already sampled —
+        # reuse those rasters instead of repeating 216 EE round trips.
+        cache_key = _gee_cache_key(self.region_key, self.bounds, timesteps, windows)
+        cached = _gee_cache_load(cache_key)
+        if cached is not None:
+            rasters, info = cached
+            self.variable_sources = info.get("sources", {})
+            live_n = sum(1 for v in self.variable_sources.values() if v == "live")
+            logger.info(f"Loaded cached GEE rasters (key {cache_key}, saved {info.get('saved_at')}); {live_n} variables live.")
+            self._set_progress("done", f"Loaded cached Earth Engine data for this region — {live_n} of 6 variables live (sampled {info.get('saved_at', 'earlier')})")
+            return rasters
+
+        fallback_rasters = self._fallback_provider.fetch_hydroclimate_rasters(timesteps)
 
         # Per-variable sampling: one dead asset or band must not take the
         # whole live ingestion down with it (the GLDAS monthly asset
@@ -231,6 +313,11 @@ class RealtimeEarthEngineDataProvider(BaseDataProvider):
         # GRACE mascon grids are not sampled from Earth Engine in this
         # provider; TWSA_native stays on the calibrated raster (as before).
         rasters["TWSA_native"] = fallback_rasters["TWSA_native"]
+
+        self.variable_sources = {name: ("live" if name in live_vars else "fallback") for name, _, _, _ in plan}
+        self.variable_sources["TWSA_native"] = "fallback"
+        if live_vars:
+            _gee_cache_save(cache_key, rasters, self.variable_sources, windows)
 
         means = ", ".join(f"{k}={float(np.mean(v)):.3f}" for k, v in rasters.items())
         logger.info(f"Live GEE ingestion finished. Live variables: {live_vars or 'none'}. Raster means: {means}")
