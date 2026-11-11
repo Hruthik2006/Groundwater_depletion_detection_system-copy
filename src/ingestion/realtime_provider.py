@@ -147,7 +147,7 @@ class RealtimeEarthEngineDataProvider(BaseDataProvider):
         plan = [
             ("P", "UCSB-CHG/CHIRPS/PENTAD", "precipitation", "sum"),
             ("ET", "MODIS/061/MOD16A2", "ET", "sum"),
-            ("SMSA", gldas, "SoilMoi0_10cm_inst", "mean"),
+            ("SMSA", gldas, "SoilMoi0_10cm_tavg", "mean"),
             ("SWEA", gldas, "SWE_inst", "mean"),
             ("CWSA", gldas, "CanopInt_inst", "mean"),
             ("Qs", gldas, "Qs_acc", "mean"),
