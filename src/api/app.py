@@ -340,6 +340,7 @@ def view_location_report(
     lon: float = -88.25,
     horizon: int = 12,
     sec_summary: int = 1,
+    sec_heatmap: int = 1,
     sec_stratigraphy: int = 1,
     sec_conformal: int = 1,
     horizon_conformal: int = 12,
@@ -444,6 +445,13 @@ def view_location_report(
         except Exception as ex:
             logger.warning(f"Live hydrograph series failed for report ({ex}); omitting hydrograph data.")
 
+    # Spatial GWLA raster for the report heatmap — the same slice the
+    # dashboard's location_predict heatmap shows (final horizon month).
+    heatmap_raster = None
+    if sec_heatmap:
+        GWLA_arr = state.downscaling_res["GWLA"]
+        heatmap_raster = GWLA_arr[(h_len - 1) % GWLA_arr.shape[0]].tolist()
+
     html_content = render_location_report(
         lat=lat,
         lon=lon,
@@ -460,9 +468,12 @@ def view_location_report(
         ablation=ablation,
         hydrograph=hydrograph,
         chart_series=chart_series,
+        heatmap_raster=heatmap_raster,
+        heatmap_month=h_len,
         data_mode=c.data_mode,
         horizon=horizon,
         sec_summary=sec_summary,
+        sec_heatmap=sec_heatmap,
         sec_stratigraphy=sec_stratigraphy,
         sec_conformal=sec_conformal,
         horizon_conformal=horizon_conformal,
