@@ -41,7 +41,7 @@ class RealtimeEarthEngineDataProvider(BaseDataProvider):
     Endpoints:
     - CHIRPS: UCSB-CHG/CHIRPS/PENTAD (Precipitation P)
     - MODIS: MODIS/061/MOD16A2 (Evapotranspiration ET)
-    - GLDAS: NASA/GLDAS/V021/NOAH/G025/T3M (Soil Moisture, SWE, Canopy Storage)
+    - GLDAS: NASA/GLDAS/V021/NOAH/G025/T3H, monthly composites (Soil Moisture, SWE, Canopy Storage) — the T3M monthly asset is not ingested by Earth Engine
     - CSR GRACE: CSR RL06.2 Mascon Solution grids
 
     Honest seam: the raster channel attempts live GEE sampling, everything else
@@ -124,39 +124,96 @@ class RealtimeEarthEngineDataProvider(BaseDataProvider):
         return meta
 
     def fetch_hydroclimate_rasters(self, timesteps: int = 36) -> Dict[str, np.ndarray]:
-        if self.ee_initialized:
-            try:
-                import ee
-                logger.info(f"Ingesting live remote sensing rasters via GEE endpoints for region '{self.region_key}' ({self.bounds})...")
-                
-                # Live GEE Collection Sampling
-                P = self._sample_gee_collection("UCSB-CHG/CHIRPS/PENTAD", "precipitation", timesteps)
-                ET = self._sample_gee_collection("MODIS/061/MOD16A2", "ET", timesteps)
-                SMSA = self._sample_gee_collection("NASA/GLDAS/V021/NOAH/G025/T3M", "SoilMoi0_10cm_tavg", timesteps)
-                SWEA = self._sample_gee_collection("NASA/GLDAS/V021/NOAH/G025/T3M", "SWE_inst", timesteps)
-                CWSA = self._sample_gee_collection("NASA/GLDAS/V021/NOAH/G025/T3M", "CanopInt_inst", timesteps)
-                Qs = self._sample_gee_collection("NASA/GLDAS/V021/NOAH/G025/T3M", "Qs_acc", timesteps)
-
-                fallback_rasters = self._fallback_provider.fetch_hydroclimate_rasters(timesteps)
-                TWSA_native = fallback_rasters["TWSA_native"]
-
-                logger.info("Successfully ingested live GEE satellite rasters!")
-                return {
-                    "P": P,
-                    "ET": ET,
-                    "SMSA": SMSA,
-                    "SWEA": SWEA,
-                    "CWSA": CWSA,
-                    "Qs": Qs,
-                    "TWSA_native": TWSA_native,
-                }
-            except Exception as e:
-                logger.warning(f"Live GEE raster sampling encountered limitation ({e}). Falling back to calibrated provider rasters.")
-                return self._fallback_provider.fetch_hydroclimate_rasters(timesteps)
-        else:
+        if not self.ee_initialized:
             return self._fallback_provider.fetch_hydroclimate_rasters(timesteps)
 
-    def _sample_gee_collection(self, collection_id: str, band_name: str, timesteps: int) -> np.ndarray:
+        logger.info(f"Ingesting live remote sensing rasters via GEE endpoints for region '{self.region_key}' ({self.bounds})...")
+        fallback_rasters = self._fallback_provider.fetch_hydroclimate_rasters(timesteps)
+
+        try:
+            windows = self._gee_month_windows(timesteps)
+        except Exception as e:
+            logger.warning(f"Live GEE raster sampling unavailable ({e}). Falling back to calibrated provider rasters.")
+            return fallback_rasters
+
+        # Per-variable sampling: one dead asset or band must not take the
+        # whole live ingestion down with it (the GLDAS monthly asset
+        # 'NASA/GLDAS/V021/NOAH/G025/T3M' does not exist in Earth Engine —
+        # only the 3-hourly T3H product is ingested — and its failure
+        # previously discarded two variables that had sampled fine).
+        # GLDAS variables are monthly means of the 3-hourly product;
+        # CHIRPS pentads and MODIS 8-day ET are summed to monthly totals.
+        gldas = "NASA/GLDAS/V021/NOAH/G025/T3H"
+        plan = [
+            ("P", "UCSB-CHG/CHIRPS/PENTAD", "precipitation", "sum"),
+            ("ET", "MODIS/061/MOD16A2", "ET", "sum"),
+            ("SMSA", gldas, "SoilMoi0_10cm_tavg", "mean"),
+            ("SWEA", gldas, "SWE_inst", "mean"),
+            ("CWSA", gldas, "CanopInt_inst", "mean"),
+            ("Qs", gldas, "Qs_acc", "mean"),
+        ]
+        rasters: Dict[str, np.ndarray] = {}
+        live_vars = []
+        for name, cid, band, agg in plan:
+            try:
+                arr = self._sample_gee_collection(cid, band, windows, agg)
+                if not np.any(arr):
+                    raise ValueError("sampled raster is all zeros (band/property mismatch?)")
+                rasters[name] = arr
+                live_vars.append(name)
+            except Exception as e:
+                logger.warning(
+                    f"Live GEE sampling for variable {name} unavailable ({e}); "
+                    "using the calibrated fallback raster for this variable only."
+                )
+                rasters[name] = fallback_rasters[name]
+
+        # GRACE mascon grids are not sampled from Earth Engine in this
+        # provider; TWSA_native stays on the calibrated raster (as before).
+        rasters["TWSA_native"] = fallback_rasters["TWSA_native"]
+
+        means = ", ".join(f"{k}={float(np.mean(v)):.3f}" for k, v in rasters.items())
+        logger.info(f"Live GEE ingestion finished. Live variables: {live_vars or 'none'}. Raster means: {means}")
+        return rasters
+
+    def _gee_month_windows(self, timesteps: int):
+        """
+        Shared monthly windows (oldest → newest) for all live collections,
+        anchored to the SLOWEST collection's latest image so every window
+        has data in every collection (GLDAS lags ~1.5 months, CHIRPS and
+        MODIS much less). Returns a list of ('YYYY-MM-DD', 'YYYY-MM-DD').
+        """
+        import datetime
+
+        import ee
+
+        latest_ms = None
+        for cid in ("UCSB-CHG/CHIRPS/PENTAD", "MODIS/061/MOD16A2", "NASA/GLDAS/V021/NOAH/G025/T3H"):
+            first = (ee.ImageCollection(cid)
+                     .sort("system:time_start", False)
+                     .first())
+            t = first.get("system:time_start").getInfo()
+            if t is None:
+                raise ValueError(f"Collection {cid} returned no images")
+            latest_ms = t if latest_ms is None else min(latest_ms, t)
+
+        anchor = datetime.datetime.utcfromtimestamp(latest_ms / 1000.0).replace(
+            day=1, hour=0, minute=0, second=0, microsecond=0
+        )
+
+        def add_months(d, n):
+            m = d.month - 1 + n
+            return d.replace(year=d.year + m // 12, month=m % 12 + 1)
+
+        windows = []
+        for k in range(timesteps):
+            start = add_months(anchor, k - (timesteps - 1))
+            end = add_months(start, 1)
+            windows.append((start.strftime("%Y-%m-%d"), end.strftime("%Y-%m-%d")))
+        logger.info(f"Live GEE monthly windows: {windows[0][0]} → {windows[-1][1]} (anchored to slowest collection).")
+        return windows
+
+    def _sample_gee_collection(self, collection_id: str, band_name: str, windows, agg: str = "mean") -> np.ndarray:
         import ee
 
         if not self.bounds:
@@ -166,18 +223,9 @@ class RealtimeEarthEngineDataProvider(BaseDataProvider):
         min_lon, min_lat, max_lon, max_lat = self.bounds
         region = ee.Geometry.BBox(min_lon, min_lat, max_lon, max_lat)
 
-        # Newest images first (the previous version took the collection's
-        # first `timesteps` images — for CHIRPS that is 1981, not today).
-        col = (ee.ImageCollection(collection_id)
-               .filterBounds(region)
-               .select(band_name)
-               .sort("system:time_start", False)
-               .limit(timesteps))
-
-        img_list = col.toList(timesteps)
-        size = img_list.size().getInfo()
-        if size == 0:
-            raise ValueError(f"No images returned for collection {collection_id}")
+        base = (ee.ImageCollection(collection_id)
+                .filterBounds(region)
+                .select(band_name))
 
         H, W = self.grid_shape
         # Sample by reducing each image over the app's own 16x16 cell grid
@@ -211,9 +259,17 @@ class RealtimeEarthEngineDataProvider(BaseDataProvider):
         ) / max(H, W)
         scale_m = float(np.clip(cell_m / 2.0, 1000.0, 30000.0))
 
+        # One composite per shared month window: sub-monthly products
+        # (CHIRPS pentads, MODIS 8-day, GLDAS 3-hourly) are aggregated to
+        # the pipeline's monthly timestep — sum for accumulated fluxes
+        # (precipitation, ET), mean for state/rate variables (GLDAS).
         rasters = []
-        for i in range(min(size, timesteps)):
-            img = ee.Image(img_list.get(i))
+        for (start, end) in windows:
+            sub = base.filterDate(start, end)
+            if sub.size().getInfo() == 0:
+                rasters.append(np.zeros((H, W), dtype=np.float32))
+                continue
+            img = sub.sum() if agg == "sum" else sub.mean()
             reduced = img.reduceRegions(
                 collection=grid_fc,
                 reducer=ee.Reducer.mean(),
@@ -229,12 +285,7 @@ class RealtimeEarthEngineDataProvider(BaseDataProvider):
                     arr[int(props["row"]), int(props["col"])] = float(v)
             rasters.append(arr)
 
-        while len(rasters) < timesteps:
-            rasters.append(rasters[-1] if rasters else np.zeros((H, W)))
-
-        # Fetched newest-first; restore chronological order (padding above
-        # duplicated the oldest fetched image, which lands at the start).
-        return np.array(rasters[:timesteps])[::-1]
+        return np.array(rasters)
 
     def fetch_piezometer_observations(self, num_wells: int = 16, timesteps: int = 36) -> Dict[str, Any]:
         logger.warning(
