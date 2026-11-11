@@ -339,10 +339,10 @@ def view_location_report(
     sec_stratigraphy: int = 1,
     sec_conformal: int = 1,
     horizon_conformal: int = 12,
-    sec_lp30day: int = 1,
-    sec_baselines: int = 1,
+    sec_lp30day: int = 0,
+    sec_baselines: int = 0,
     sec_ablation: int = 1,
-    sec_pumping: int = 1,
+    sec_pumping: int = 0,
     horizon_pumping: int = 12,
     sec_hydrograph: int = 1,
     horizon_hydrograph: int = 24,
@@ -370,29 +370,21 @@ def view_location_report(
     Sy = forecast["geophysics"]["Sy"]
     K = forecast["geophysics"]["K_m_per_day"]
 
-    # Live 30-day worked LP (solver output, not canned sine waves)
+    # Removed from the printed report (2026-11-11): Prediction 2 (30-day LP),
+    # Prediction 3 (paper baselines) and Prediction 5 (SCP pumping quotas).
+    # They are global, not location-specific, so the report no longer runs
+    # those solvers at all — the params above are accepted but ignored.
+    sec_lp30day = 0
+    sec_baselines = 0
+    sec_pumping = 0
     lp_result = None
-    if sec_lp30day:
-        from src.control.single_station_lp import solve_station_cgwbhu2335_lp
-        try:
-            lp_result = solve_station_cgwbhu2335_lp()
-        except Exception as ex:
-            logger.warning(f"Live LP solve failed for report ({ex}); omitting LP chart data.")
-
-    # Live SCP-CCMPC pumping schedule (memoized per tunable set)
     mpc_result = None
-    if sec_pumping:
-        mpc_result = state.resolve_mpc(
-            horizon=horizon_pumping,
-            alpha=c.alpha,
-            h_min=c.h_min,
-            h_target=c.h_target,
-        )
 
-    # Live framework baselines & ablation metrics
+    # Live framework ablation metrics (baselines are computed alongside
+    # by ensure_evaluation but are no longer rendered in the report)
     baselines = None
     ablation = None
-    if sec_baselines or sec_ablation:
+    if sec_ablation:
         baselines, ablation = state.ensure_evaluation()
 
     # Live hydrograph rasters at the query cell
