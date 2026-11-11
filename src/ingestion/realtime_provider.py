@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, Any
 from .base_provider import BaseDataProvider
 from .synthetic_provider import SyntheticDataProvider, REGION_PRESETS
@@ -152,18 +153,39 @@ class RealtimeEarthEngineDataProvider(BaseDataProvider):
             ("CWSA", gldas, "CanopInt_inst", "mean"),
             ("Qs", gldas, "Qs_acc", "mean"),
         ]
-        rasters: Dict[str, np.ndarray] = {}
-        live_vars = []
-        for name, cid, band, agg in plan:
+        # The six variables are independent and every monthly window is a
+        # separate Earth Engine round trip (~2.4 s), so sampling them one
+        # after another costs ~216 sequential calls (~9 minutes). Sample
+        # the variables concurrently instead: identical per-window calls,
+        # identical monthly composites, identical results — only the
+        # wall-clock changes. Results are still assembled in plan order,
+        # and a variable that fails (or samples all zeros) still falls
+        # back on its own, exactly as in the sequential version.
+        def _sample_one(item):
+            name, cid, band, agg = item
             try:
                 arr = self._sample_gee_collection(cid, band, windows, agg)
                 if not np.any(arr):
                     raise ValueError("sampled raster is all zeros (band/property mismatch?)")
+                return name, arr, None
+            except Exception as e:
+                return name, None, e
+
+        outcomes = {}
+        with ThreadPoolExecutor(max_workers=len(plan)) as pool:
+            for name, arr, err in pool.map(_sample_one, plan):
+                outcomes[name] = (arr, err)
+
+        rasters: Dict[str, np.ndarray] = {}
+        live_vars = []
+        for name, cid, band, agg in plan:
+            arr, err = outcomes[name]
+            if err is None:
                 rasters[name] = arr
                 live_vars.append(name)
-            except Exception as e:
+            else:
                 logger.warning(
-                    f"Live GEE sampling for variable {name} unavailable ({e}); "
+                    f"Live GEE sampling for variable {name} unavailable ({err}); "
                     "using the calibrated fallback raster for this variable only."
                 )
                 rasters[name] = fallback_rasters[name]
