@@ -123,7 +123,7 @@ class DWLRDataProvider(BaseDataProvider):
     def fetch_piezometer_observations(
         self,
         num_wells: int = 16,
-        timesteps: int = 36,
+        timesteps: int = 12,
     ) -> Dict[str, Any]:
         """
         Parses and formats real DWLR station time-series data.
@@ -203,7 +203,7 @@ class DWLRDataProvider(BaseDataProvider):
             "station_meta": station_meta,
         }
 
-    def fetch_hydroclimate_rasters(self, timesteps: int = 36) -> Dict[str, np.ndarray]:
+    def fetch_hydroclimate_rasters(self, timesteps: int = 12) -> Dict[str, np.ndarray]:
         """
         Provides matched hydroclimatic rasters (P, ET, SMSA, TWSA) paired with DWLR records.
         """
