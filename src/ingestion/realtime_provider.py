@@ -123,7 +123,7 @@ class RealtimeEarthEngineDataProvider(BaseDataProvider):
         meta["serves"] = self.serves()
         return meta
 
-    def fetch_hydroclimate_rasters(self, timesteps: int = 36) -> Dict[str, np.ndarray]:
+    def fetch_hydroclimate_rasters(self, timesteps: int = 12) -> Dict[str, np.ndarray]:
         if not self.ee_initialized:
             return self._fallback_provider.fetch_hydroclimate_rasters(timesteps)
 
@@ -287,7 +287,7 @@ class RealtimeEarthEngineDataProvider(BaseDataProvider):
 
         return np.array(rasters)
 
-    def fetch_piezometer_observations(self, num_wells: int = 16, timesteps: int = 36) -> Dict[str, Any]:
+    def fetch_piezometer_observations(self, num_wells: int = 16, timesteps: int = 12) -> Dict[str, Any]:
         logger.warning(
             "Realtime provider has no live piezometer channel; serving synthetic fallback "
             "well observations (see provider serves.hydromet)."
