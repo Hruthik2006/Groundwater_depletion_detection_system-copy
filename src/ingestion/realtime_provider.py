@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import logging
+import threading
 from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, Any
 from .base_provider import BaseDataProvider
@@ -81,6 +82,14 @@ class RealtimeEarthEngineDataProvider(BaseDataProvider):
         self.seed = seed
         self.fallback_if_unauthenticated = fallback_if_unauthenticated
         self.ee_initialized = False
+        # Live ingestion progress, surfaced via /api/v1/status so the
+        # loading UI can show what the sampler is doing instead of a
+        # static spinner text (a full build takes minutes). Written from
+        # the parallel sampler threads, so updates hold a lock.
+        self.progress = {"stage": "idle", "message": "", "percent": None}
+        self._progress_done = 0
+        self._progress_total = 0
+        self._progress_lock = threading.Lock()
 
         self._fallback_provider = SyntheticDataProvider(
             grid_shape=grid_shape,
@@ -124,9 +133,24 @@ class RealtimeEarthEngineDataProvider(BaseDataProvider):
         meta["serves"] = self.serves()
         return meta
 
+    def _set_progress(self, stage: str, message: str):
+        with self._progress_lock:
+            percent = None
+            if stage == "done":
+                percent = 100
+            elif stage == "sampling" and self._progress_total > 0:
+                percent = int(round(100.0 * self._progress_done / self._progress_total))
+            self.progress = {"stage": stage, "message": message, "percent": percent}
+
     def fetch_hydroclimate_rasters(self, timesteps: int = 36) -> Dict[str, np.ndarray]:
+        with self._progress_lock:
+            self._progress_done = 0
+            self._progress_total = 0
         if not self.ee_initialized:
+            self._set_progress("fallback", "Earth Engine not connected — using calibrated benchmark data")
             return self._fallback_provider.fetch_hydroclimate_rasters(timesteps)
+
+        self._set_progress("connecting", "Connecting to Earth Engine…")
 
         logger.info(f"Ingesting live remote sensing rasters via GEE endpoints for region '{self.region_key}' ({self.bounds})...")
         fallback_rasters = self._fallback_provider.fetch_hydroclimate_rasters(timesteps)
@@ -135,7 +159,10 @@ class RealtimeEarthEngineDataProvider(BaseDataProvider):
             windows = self._gee_month_windows(timesteps)
         except Exception as e:
             logger.warning(f"Live GEE raster sampling unavailable ({e}). Falling back to calibrated provider rasters.")
+            self._set_progress("fallback", "Live sampling unavailable — using calibrated benchmark data")
             return fallback_rasters
+
+        self._set_progress("windows", f"Live GEE monthly windows: {windows[0][0]} → {windows[-1][1]}")
 
         # Per-variable sampling: one dead asset or band must not take the
         # whole live ingestion down with it (the GLDAS monthly asset
@@ -161,10 +188,21 @@ class RealtimeEarthEngineDataProvider(BaseDataProvider):
         # wall-clock changes. Results are still assembled in plan order,
         # and a variable that fails (or samples all zeros) still falls
         # back on its own, exactly as in the sequential version.
+        labels = {
+            "P": "Precipitation (CHIRPS)",
+            "ET": "Evapotranspiration (MODIS)",
+            "SMSA": "Soil moisture (GLDAS)",
+            "SWEA": "Snow water equivalent (GLDAS)",
+            "CWSA": "Canopy water storage (GLDAS)",
+            "Qs": "Surface runoff (GLDAS)",
+        }
+        with self._progress_lock:
+            self._progress_total = len(plan) * len(windows)
+
         def _sample_one(item):
             name, cid, band, agg = item
             try:
-                arr = self._sample_gee_collection(cid, band, windows, agg)
+                arr = self._sample_gee_collection(cid, band, windows, agg, label=labels[name])
                 if not np.any(arr):
                     raise ValueError("sampled raster is all zeros (band/property mismatch?)")
                 return name, arr, None
@@ -196,6 +234,11 @@ class RealtimeEarthEngineDataProvider(BaseDataProvider):
 
         means = ", ".join(f"{k}={float(np.mean(v)):.3f}" for k, v in rasters.items())
         logger.info(f"Live GEE ingestion finished. Live variables: {live_vars or 'none'}. Raster means: {means}")
+        fallback_vars = [name for name, _, _, _ in plan if name not in live_vars]
+        done_msg = f"Live GEE ingestion finished — {len(live_vars)} of {len(plan)} variables live"
+        if fallback_vars:
+            done_msg += f"; calibrated fallback: {', '.join(fallback_vars)}"
+        self._set_progress("done", done_msg)
         return rasters
 
     def _gee_month_windows(self, timesteps: int):
@@ -235,7 +278,7 @@ class RealtimeEarthEngineDataProvider(BaseDataProvider):
         logger.info(f"Live GEE monthly windows: {windows[0][0]} → {windows[-1][1]} (anchored to slowest collection).")
         return windows
 
-    def _sample_gee_collection(self, collection_id: str, band_name: str, windows, agg: str = "mean") -> np.ndarray:
+    def _sample_gee_collection(self, collection_id: str, band_name: str, windows, agg: str = "mean", label: str = "GEE data") -> np.ndarray:
         import ee
 
         if not self.bounds:
@@ -286,7 +329,10 @@ class RealtimeEarthEngineDataProvider(BaseDataProvider):
         # the pipeline's monthly timestep — sum for accumulated fluxes
         # (precipitation, ET), mean for state/rate variables (GLDAS).
         rasters = []
-        for (start, end) in windows:
+        for wi, (start, end) in enumerate(windows):
+            with self._progress_lock:
+                self._progress_done += 1
+            self._set_progress("sampling", f"Sampling {label} — month {wi + 1} of {len(windows)}")
             sub = base.filterDate(start, end)
             if sub.size().getInfo() == 0:
                 rasters.append(np.zeros((H, W), dtype=np.float32))
