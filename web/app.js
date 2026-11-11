@@ -979,8 +979,10 @@ function initGisMap() {
     const lon = e.latlng.lng.toFixed(4);
     document.getElementById("inputLat").value = lat;
     document.getElementById("inputLon").value = lon;
+    if (locationMarker) locationMarker.setLatLng(e.latlng);
 
     await fetchUnifiedControl();
+    if (locationMarker) locationMarker.openPopup();
   });
 }
 
@@ -2346,6 +2348,14 @@ async function predictPointLocation() {
         <b>Head (Mo ${horizon}):</b> ${headLast}m (95% Bound: ${safeLast}m)<br>
         <b>Status:</b> ${data.depletion_risk}
       `;
+      // Move the pin to the predicted location and bind this popup.
+      // (Previously the popup HTML was built and then dropped — nothing
+      // ever moved the marker, so map clicks updated the data behind
+      // the scenes but left the pin sitting on the old location.)
+      if (locationMarker) {
+        locationMarker.setLatLng([data.query_coordinates.lat, data.query_coordinates.lon]);
+        locationMarker.bindPopup(popupHtml);
+      }
       // Sync region preset selector and label if auto-switched
       if (data.region_key) {
         const regionSelect = document.getElementById("regionPresetSelect");
@@ -2549,7 +2559,46 @@ function applyHeaderCoordinates() {
   predictPointLocation();
 }
 
+// While a data-source switch rebuilds the dataset (a live GEE build takes
+// minutes), poll /api/v1/status and mirror the provider's ingestion progress
+// into the visible loading element — the input screen's loading line while
+// it is showing, otherwise the GEE status badge text — so the user sees
+// what is actually happening instead of a static spinner text.
+// Returns a stop function.
+function startIngestionProgressPolling() {
+  let stopped = false;
+  let polls = 0;
+  const tick = async () => {
+    if (stopped || ++polls > 600) {
+      clearInterval(timer);
+      return;
+    }
+    try {
+      const res = await fetch("/api/v1/status");
+      const data = await res.json();
+      const p = data.ingestion_progress;
+      if (!p || !p.message || p.stage === "idle") return;
+      const inputText = document.getElementById("inputScreenLoadingText");
+      const badgeText = document.getElementById("geeStatusText");
+      const el = inputText && inputText.classList.contains("visible") ? inputText : badgeText;
+      if (el) {
+        el.innerText =
+          p.percent != null && p.stage === "sampling" ? `${p.message} (${p.percent}%)` : p.message;
+      }
+    } catch (err) {
+      /* progress polling is best-effort */
+    }
+  };
+  const timer = setInterval(tick, 1500);
+  tick();
+  return () => {
+    stopped = true;
+    clearInterval(timer);
+  };
+}
+
 async function setDataSourceMode(mode) {
+  const stopProgress = startIngestionProgressPolling();
   try {
     const res = await fetch("/api/v1/config/data_source", {
       method: "POST",
@@ -2561,6 +2610,8 @@ async function setDataSourceMode(mode) {
     await fetchUnifiedControl();
   } catch (err) {
     console.error("Data source mode switch error:", err);
+  } finally {
+    stopProgress();
   }
 }
 
