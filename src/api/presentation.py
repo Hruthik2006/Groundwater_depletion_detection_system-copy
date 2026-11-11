@@ -461,6 +461,7 @@ def render_location_report(
     .pred-grid-container {{ display: flex; flex-direction: column; gap: 18px; margin-bottom: 20px; }}
     .chart-container-card {{ background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; page-break-inside: avoid; }}
     .chart-card-header {{ font-size: 12px; font-weight: 700; color: #1e3a8a; font-family: 'Outfit', sans-serif; text-transform: uppercase; margin-bottom: 10px; letter-spacing: 0.3px; }}
+    .rpt-print-img {{ display: none; }}
     .btn-print {{ background: #2563eb; color: #fff; border: none; padding: 10px 20px; border-radius: 6px; font-weight: 600; cursor: pointer; float: right; margin-top: -5px; font-size: 13px; box-shadow: 0 2px 6px rgba(37,99,235,0.3); }}
     .btn-print:hover {{ background: #1d4ed8; }}
     .signoff {{ margin-top: 36px; padding-top: 18px; border-top: 1px dashed #cbd5e1; display: flex; justify-content: space-between; font-size: 12px; color: #64748b; page-break-inside: avoid; }}
@@ -469,6 +470,8 @@ def render_location_report(
       body {{ background: #fff; margin: 0; padding: 0; }}
       .report-card {{ box-shadow: none; border: none; padding: 0; max-width: 100%; }}
       .chart-container-card {{ page-break-inside: avoid; }}
+      canvas {{ display: none !important; }}
+      .rpt-print-img {{ display: block !important; width: 100%; height: auto; }}
     }}
   </style>
 </head>
@@ -512,10 +515,28 @@ def render_location_report(
       // Print fix (2026-11-11): switching to print layout resizes the report
       // card, which makes Chart.js clear + redraw its canvases; Chrome's PDF
       // snapshot can catch that mid-redraw and the chart comes out blank or
-      // squashed in the PDF even though it looks fine on screen. Drawing with
-      // animation off and force-resizing/redrawing on beforeprint fixes it.
+      // squashed in the PDF even though it looks fine on screen. Redrawing on
+      // beforeprint alone proved unreliable in real Chrome, so the charts are
+      // also snapshotted to static PNG <img> twins: print CSS hides the live
+      // canvases and shows the images instead, which always print correctly.
+      function snapshotRptCharts() {{
+        rptCharts.forEach(function(ch) {{
+          try {{
+            const cv = ch.canvas;
+            let img = cv.nextElementSibling;
+            if (!img || !img.classList.contains("rpt-print-img")) {{
+              img = document.createElement("img");
+              img.className = "rpt-print-img";
+              img.alt = "Chart image (print version)";
+              cv.parentNode.insertBefore(img, cv.nextSibling);
+            }}
+            img.src = cv.toDataURL("image/png");
+          }} catch (e) {{}}
+        }});
+      }}
       window.addEventListener("beforeprint", function() {{
         rptCharts.forEach(function(ch) {{ ch.resize(); ch.update("none"); }});
+        snapshotRptCharts();
       }});
 
       // 1. Conformal Head Forecast Chart
@@ -555,6 +576,9 @@ def render_location_report(
           }}));
         }}
       }}
+
+      // Take the first print snapshot once the charts have drawn.
+      setTimeout(snapshotRptCharts, 300);
     }});
   </script>
 </body>
