@@ -349,7 +349,7 @@ def view_location_report(
     sec_pumping: int = 0,
     horizon_pumping: int = 12,
     sec_hydrograph: int = 1,
-    horizon_hydrograph: int = 24,
+    horizon_hydrograph: int = 12,
     sec_math: int = 1,
     sec_table: int = 1,
     sec_recommendations: int = 1,
