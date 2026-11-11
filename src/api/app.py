@@ -542,6 +542,11 @@ def get_spatial_drawdown_3d(horizon: int = 12, lat: float = None, lon: float = N
     H, W = GWLA.shape[1], GWLA.shape[2]
     Sy = state.dataset.geophysics["Sy"]
     z_bedrock = state.dataset.geophysics["z_bedrock"]
+    elev_grid = state.dataset.geophysics.get("elevation")
+    if elev_grid is not None:
+        elev_grid = np.asarray(elev_grid, dtype=float)
+        elev_min = float(elev_grid.min())
+        elev_span = max(float(elev_grid.max()) - elev_min, 1.0)
     region_key = state.data_loader.region_key
 
     # Location-specific hydrogeological stratigraphic profiles
@@ -594,9 +599,25 @@ def get_spatial_drawdown_3d(horizon: int = 12, lat: float = None, lon: float = N
             x = -7.0 + (c / float(W - 1)) * 14.0
             y = 7.0 - (r / float(H - 1)) * 14.0
 
-            topo_elev = prof["terrain_base"] + 0.6 * np.sin(r * 0.4) * np.cos(c * 0.4)
+            # Terrain from the dataset's real per-cell elevation grid,
+            # normalised into the scene's vertical scale (the old code
+            # used the same sine pattern for every location). Providers
+            # without an elevation grid keep the legacy pattern.
+            if elev_grid is not None:
+                topo_elev = prof["terrain_base"] + ((float(elev_grid[r, c]) - elev_min) / elev_span - 0.5) * 1.6
+            else:
+                topo_elev = prof["terrain_base"] + 0.6 * np.sin(r * 0.4) * np.cos(c * 0.4)
             z_water = float(prof["water_base"] + (gwla_slice[r, c] - 2.5) * 0.6)
             z_floor = float(prof["bedrock_base"] - (z_bedrock[r, c] - 20.0) * 0.08)
+            # Per-cell layer surfaces derived from the real surfaces
+            # above, so every layer — not just water and bedrock —
+            # follows the location: vadose mid-way through the
+            # unsaturated zone, aquitard hugging the lower quarter of
+            # the saturated column, aquifer mid-way between the water
+            # table and the aquitard.
+            z_vadose = (topo_elev + z_water) / 2.0
+            z_aquitard = z_floor + (z_water - z_floor) * 0.25
+            z_aquifer = (z_water + z_aquitard) / 2.0
 
             vertices_3d.append({
                 "row": r,
@@ -604,7 +625,10 @@ def get_spatial_drawdown_3d(horizon: int = 12, lat: float = None, lon: float = N
                 "x": round(x, 3),
                 "y": round(y, 3),
                 "z_terrain": round(float(topo_elev), 3),
+                "z_vadose": round(float(z_vadose), 3),
                 "z_water": round(z_water, 3),
+                "z_aquifer": round(float(z_aquifer), 3),
+                "z_aquitard": round(float(z_aquitard), 3),
                 "z_bedrock": round(z_floor, 3),
                 "gwla_m": float(gwla_slice[r, c]),
                 "sy": float(Sy[r, c]),
