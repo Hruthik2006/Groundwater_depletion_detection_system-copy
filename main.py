@@ -60,7 +60,7 @@ def run_full_pipeline(data_mode: str = "synthetic"):
     logger.info(f"GNN-LSTM surrogate forward pass shape: {gnn_out.shape}")
 
     # 3. Split Conformal Prediction UQ Layer (already calibrated by build()).
-    logger.info("Layer 5: Split Conformal Predictor calibrated on surrogate residual errors...")
+    logger.info("Layer 5: Split Conformal Predictor calibrated on analytic-forecast residuals (in build())...")
     q_hat = pipeline.conformal.q_hat
     logger.info(f"Conformal empirical error margin q_hat (alpha=0.05): {q_hat:.4f}m")
 
