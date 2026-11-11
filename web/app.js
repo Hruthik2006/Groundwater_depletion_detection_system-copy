@@ -1431,6 +1431,16 @@ async function validateAndSubmitDetails(e) {
     continueBtn.style.opacity = "0.5";
   }
 
+  // Sync the dashboard pin FIRST: the data-source switch below triggers
+  // refreshes that read inputLat/inputLon, and they must already hold the
+  // location entered on this screen — otherwise they run against the
+  // previous pin and auto-switch the region straight back. (Step 7 below
+  // repeats this sync for the remaining controls.)
+  const earlyLat = document.getElementById("inputLat");
+  const earlyLon = document.getElementById("inputLon");
+  if (earlyLat) earlyLat.value = latNum.toFixed(2);
+  if (earlyLon) earlyLon.value = lonNum.toFixed(2);
+
   // 6. Sync configuration to backend API with animated progress steps
   try {
     if (loadingText) loadingText.innerText = `Configuring region: ${selectedInputPageRegion}...`;
