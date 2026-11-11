@@ -508,12 +508,21 @@ def render_location_report(
     document.addEventListener("DOMContentLoaded", function() {{
       const secConf = {1 if sec_conformal else 0};
       const secHydro = {1 if sec_hydrograph else 0};
+      const rptCharts = [];
+      // Print fix (2026-11-11): switching to print layout resizes the report
+      // card, which makes Chart.js clear + redraw its canvases; Chrome's PDF
+      // snapshot can catch that mid-redraw and the chart comes out blank or
+      // squashed in the PDF even though it looks fine on screen. Drawing with
+      // animation off and force-resizing/redrawing on beforeprint fixes it.
+      window.addEventListener("beforeprint", function() {{
+        rptCharts.forEach(function(ch) {{ ch.resize(); ch.update("none"); }});
+      }});
 
       // 1. Conformal Head Forecast Chart
       if (secConf) {{
         const ctxConf = document.getElementById("rptChartConformal");
         if (ctxConf) {{
-          new Chart(ctxConf.getContext("2d"), {{
+          rptCharts.push(new Chart(ctxConf.getContext("2d"), {{
             type: "line",
             data: {{
               labels: {json.dumps(labels_conformal)},
@@ -523,8 +532,8 @@ def render_location_report(
                 {{ label: "95% Conformal Upper Bound", data: {json.dumps(upper_bounds)}, borderColor: "rgba(16,185,129,0.8)", borderDash: [4, 3], borderWidth: 1.8, pointRadius: 0, fill: false, tension: 0.3 }}
               ]
             }},
-            options: {{ responsive: true, plugins: {{ legend: {{ labels: {{ font: {{ size: 10 }} }} }} }}, scales: {{ y: {{ title: {{ display: true, text: "Head (m)", font: {{ size: 10 }} }} }}, x: {{ title: {{ display: true, text: "Forecast Month", font: {{ size: 10 }} }} }} }} }}
-          }});
+            options: {{ responsive: true, animation: false, plugins: {{ legend: {{ labels: {{ font: {{ size: 10 }} }} }} }}, scales: {{ y: {{ title: {{ display: true, text: "Head (m)", font: {{ size: 10 }} }} }}, x: {{ title: {{ display: true, text: "Forecast Month", font: {{ size: 10 }} }} }} }} }}
+          }}));
         }}
       }}
 
@@ -532,7 +541,7 @@ def render_location_report(
       if (secHydro) {{
         const ctxHydro = document.getElementById("rptChartHydrograph");
         if (ctxHydro) {{
-          new Chart(ctxHydro.getContext("2d"), {{
+          rptCharts.push(new Chart(ctxHydro.getContext("2d"), {{
             type: "bar",
             data: {{
               labels: {json.dumps(hydro_labels)},
@@ -542,8 +551,8 @@ def render_location_report(
                 {{ type: "line", label: "Head Level (m)", data: {json.dumps(hydro_head)}, borderColor: "#f97316", borderWidth: 2.5, pointRadius: 2, fill: false, yAxisID: "yHead" }}
               ]
             }},
-            options: {{ responsive: true, plugins: {{ legend: {{ labels: {{ font: {{ size: 10 }} }} }} }}, scales: {{ yHead: {{ position: "left", title: {{ display: true, text: "Head Level (m)", font: {{ size: 10 }} }} }}, yRain: {{ position: "right", grid: {{ drawOnChartArea: false }}, title: {{ display: true, text: "Rainfall / Recharge (cm)", font: {{ size: 10 }} }} }} }} }}
-          }});
+            options: {{ responsive: true, animation: false, plugins: {{ legend: {{ labels: {{ font: {{ size: 10 }} }} }} }}, scales: {{ yHead: {{ position: "left", title: {{ display: true, text: "Head Level (m)", font: {{ size: 10 }} }} }}, yRain: {{ position: "right", grid: {{ drawOnChartArea: false }}, title: {{ display: true, text: "Rainfall / Recharge (cm)", font: {{ size: 10 }} }} }} }} }}
+          }}));
         }}
       }}
     }});
