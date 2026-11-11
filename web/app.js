@@ -2468,6 +2468,7 @@ function generateCustomPdfReport() {
   };
 
   const secSummary = isChecked("rptSec_summary");
+  const secHeatmap = isChecked("rptSec_heatmap");
   const secStratigraphy = isChecked("rptSec_stratigraphy");
   const secConformal = isChecked("rptSec_conformal");
   const hConformal = getHorizon("rptHorizon_conformal", 12);
@@ -2479,7 +2480,7 @@ function generateCustomPdfReport() {
   const secPumping = 0;
   const hPumping = 12;
   const secHydrograph = isChecked("rptSec_hydrograph");
-  const hHydrograph = getHorizon("rptHorizon_hydrograph", 24);
+  const hHydrograph = getHorizon("rptHorizon_hydrograph", 12);
   const secMath = isChecked("rptSec_math");
   const secTable = isChecked("rptSec_table");
   const secRecs = isChecked("rptSec_recommendations");
@@ -2489,6 +2490,7 @@ function generateCustomPdfReport() {
   params.append("lon", lon);
   params.append("horizon", hConformal);
   params.append("sec_summary", secSummary);
+  params.append("sec_heatmap", secHeatmap);
   params.append("sec_stratigraphy", secStratigraphy);
   params.append("sec_conformal", secConformal);
   params.append("horizon_conformal", hConformal);
