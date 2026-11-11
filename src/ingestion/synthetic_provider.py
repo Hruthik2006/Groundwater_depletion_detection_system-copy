@@ -52,7 +52,7 @@ class SyntheticDataProvider(BaseDataProvider):
             "bounds": self.bounds,  # [min_lon, min_lat, max_lon, max_lat]
         }
 
-    def fetch_hydroclimate_rasters(self, timesteps: int = 12) -> Dict[str, np.ndarray]:
+    def fetch_hydroclimate_rasters(self, timesteps: int = 36) -> Dict[str, np.ndarray]:
         np.random.seed(self.seed)
         t = np.arange(timesteps)
         H, W = self.height, self.width
@@ -98,7 +98,7 @@ class SyntheticDataProvider(BaseDataProvider):
             "TWSA_native": TWSA_coarse,
         }
 
-    def fetch_piezometer_observations(self, num_wells: int = 16, timesteps: int = 12) -> Dict[str, Any]:
+    def fetch_piezometer_observations(self, num_wells: int = 16, timesteps: int = 36) -> Dict[str, Any]:
         np.random.seed(self.seed + 1)
         H, W = self.height, self.width
         
