@@ -35,10 +35,10 @@ def render_location_report(
     sec_stratigraphy: int = 1,
     sec_conformal: int = 1,
     horizon_conformal: int = 12,
-    sec_lp30day: int = 1,
-    sec_baselines: int = 1,
+    sec_lp30day: int = 0,
+    sec_baselines: int = 0,
     sec_ablation: int = 1,
-    sec_pumping: int = 1,
+    sec_pumping: int = 0,
     horizon_pumping: int = 12,
     sec_hydrograph: int = 1,
     horizon_hydrograph: int = 24,
@@ -319,41 +319,17 @@ def render_location_report(
       </div>
         """)
 
-    # Pred 2: 30-Day LP Extraction
-    if sec_lp30day:
-        pred_charts_html.append(r"""
-      <div class="chart-container-card">
-        <div class="chart-card-header">
-          <span>Prediction 2: Station CGWBHU2335 Worked 30-Day LP Extraction &amp; Head Trajectory</span>
-        </div>
-        <canvas id="rptChartLp30" style="width:100%; max-height:220px;"></canvas>
-      </div>
-        """)
+    # Predictions 2 (30-Day LP), 3 (Baselines) and 5 (Pumping Quotas) were
+    # removed from the printed report (2026-11-11) — they are global, not
+    # location-specific. sec_lp30day / sec_baselines / sec_pumping are still
+    # accepted for compatibility but no longer render anything.
 
-    # Pred 3: Baseline Comparison
-    if sec_baselines:
-        pred_charts_html.append(f"""
-      <div class="chart-container-card">
-        <div class="chart-card-header">
-          <span>Prediction 3: Paper Baseline ML Models Performance Comparison (Table 3)</span>
-        </div>
-        <table style="margin-top: 6px;">
-          <thead>
-            <tr><th>Model Architecture</th><th>RMSE (m)</th><th>MAE (m)</th><th>R² Score</th><th>Safety CVR</th></tr>
-          </thead>
-          <tbody>
-            {baseline_rows_html}
-          </tbody>
-        </table>
-      </div>
-        """)
-
-    # Pred 4: Ablation Suite
+    # Pred 2 (was 4): Ablation Suite
     if sec_ablation:
         pred_charts_html.append(f"""
       <div class="chart-container-card">
         <div class="chart-card-header">
-          <span>Prediction 4: Historical Level Autoregressive Ablation Suite (Table 4)</span>
+          <span>Prediction 2: Historical Level Autoregressive Ablation Suite (Table 4)</span>
         </div>
         <table style="margin-top: 6px;">
           <thead>
@@ -366,23 +342,12 @@ def render_location_report(
       </div>
         """)
 
-    # Pred 5: Pumping Quotas
-    if sec_pumping:
-        pred_charts_html.append(fr"""
-      <div class="chart-container-card">
-        <div class="chart-card-header">
-          <span>Prediction 5: Multi-Well SCP Chance-Constrained Pumping Quotas ({horizon_pumping} Months)</span>
-        </div>
-        <canvas id="rptChartPumping" style="width:100%; max-height:220px;"></canvas>
-      </div>
-        """)
-
-    # Pred 6: Hydrograph
+    # Pred 3 (was 6): Hydrograph
     if sec_hydrograph:
         pred_charts_html.append(fr"""
       <div class="chart-container-card">
         <div class="chart-card-header">
-          <span>Prediction 6: Hydrograph (Rainfall, Vadose Delay Recharge &amp; Head Dynamics - {horizon_hydrograph} Months)</span>
+          <span>Prediction 3: Hydrograph (Rainfall, Vadose Delay Recharge &amp; Head Dynamics - {horizon_hydrograph} Months)</span>
         </div>
         <canvas id="rptChartHydrograph" style="width:100%; max-height:220px;"></canvas>
       </div>
@@ -542,8 +507,6 @@ def render_location_report(
   <script>
     document.addEventListener("DOMContentLoaded", function() {{
       const secConf = {1 if sec_conformal else 0};
-      const secLp = {1 if sec_lp30day else 0};
-      const secPump = {1 if sec_pumping else 0};
       const secHydro = {1 if sec_hydrograph else 0};
 
       // 1. Conformal Head Forecast Chart
@@ -565,40 +528,7 @@ def render_location_report(
         }}
       }}
 
-      // 2. 30-Day LP Extraction Chart
-      if (secLp) {{
-        const ctxLp = document.getElementById("rptChartLp30");
-        if (ctxLp) {{
-          new Chart(ctxLp.getContext("2d"), {{
-            type: "bar",
-            data: {{
-              labels: {json.dumps(lp_days)},
-              datasets: [
-                {{ type: "bar", label: "Pumping Rate (m³/d)", data: {json.dumps(lp_extraction)}, backgroundColor: "rgba(37, 99, 235, 0.65)", yAxisID: "y1" }},
-                {{ type: "line", label: "Piezometric Head (m)", data: {json.dumps(lp_head)}, borderColor: "#f97316", borderWidth: 2, pointRadius: 2, fill: false, yAxisID: "y" }}
-              ]
-            }},
-            options: {{ responsive: true, plugins: {{ legend: {{ labels: {{ font: {{ size: 10 }} }} }} }}, scales: {{ y: {{ position: "left", title: {{ display: true, text: "Head (m)", font: {{ size: 10 }} }} }}, y1: {{ position: "right", grid: {{ drawOnChartArea: false }}, title: {{ display: true, text: "Extraction (m³/d)", font: {{ size: 10 }} }} }} }} }}
-          }});
-        }}
-      }}
-
-      // 3. Multi-Well SCP Quotas Chart
-      if (secPump) {{
-        const ctxPump = document.getElementById("rptChartPumping");
-        if (ctxPump) {{
-          new Chart(ctxPump.getContext("2d"), {{
-            type: "bar",
-            data: {{
-              labels: {json.dumps(pump_labels)},
-              datasets: {json.dumps(pump_datasets)}
-            }},
-            options: {{ responsive: true, plugins: {{ legend: {{ labels: {{ font: {{ size: 10 }} }} }} }}, scales: {{ y: {{ title: {{ display: true, text: "Extraction Quota (m³/month)", font: {{ size: 10 }} }} }} }} }}
-          }});
-        }}
-      }}
-
-      // 4. Hydrograph Chart
+      // 2. Hydrograph Chart
       if (secHydro) {{
         const ctxHydro = document.getElementById("rptChartHydrograph");
         if (ctxHydro) {{
