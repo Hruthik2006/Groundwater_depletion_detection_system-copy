@@ -1,6 +1,46 @@
 document.addEventListener("DOMContentLoaded", () => {
   fetchAdminHistory();
+  loadUiSettings();
 });
+
+async function loadUiSettings() {
+  try {
+    const res = await fetch("/api/v1/admin/ui-settings");
+    const data = await res.json();
+    const toggle = document.getElementById("adminProvenanceToggle");
+    const stateEl = document.getElementById("adminProvenanceState");
+    const show = !data.ui_settings || data.ui_settings.show_provenance_option !== false;
+    if (toggle) toggle.checked = show;
+    if (stateEl) {
+      stateEl.innerText = show
+        ? "Currently: the provenance option is VISIBLE in the PDF generator pop-up."
+        : "Currently: the provenance option is HIDDEN in the PDF generator pop-up (and never included in generated reports).";
+    }
+  } catch (err) {
+    console.error("UI settings load error:", err);
+  }
+}
+
+async function toggleProvenanceVisibility(checkbox) {
+  try {
+    const res = await fetch("/api/v1/admin/ui-settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ show_provenance_option: checkbox.checked }),
+    });
+    const data = await res.json();
+    if (data.status === "success") {
+      loadUiSettings();
+      fetchAdminHistory();
+    } else {
+      alert("Could not save the setting.");
+      checkbox.checked = !checkbox.checked;
+    }
+  } catch (err) {
+    console.error("UI settings save error:", err);
+    checkbox.checked = !checkbox.checked;
+  }
+}
 
 async function toggleDataChannel(mode) {
   try {
