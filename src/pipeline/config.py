@@ -21,7 +21,7 @@ class Config:
     bounds: Optional[list] = None
     grid_shape: Tuple[int, int] = (16, 16)
     mascon_grid_shape: Tuple[int, int] = (2, 2)
-    timesteps: int = 12
+    timesteps: int = 36
     num_wells: int = 16
     seed: int = 42
 
