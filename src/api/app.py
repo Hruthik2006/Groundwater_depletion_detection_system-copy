@@ -250,6 +250,9 @@ def get_system_status():
         "conformal_q_hat": state.conformal.q_hat,
         "grid_shape": meta["grid_shape"],
         "provider_serves": meta.get("serves"),
+        # Live GEE ingestion progress (realtime provider only; None for
+        # providers that do not report it) — polled by the loading UI.
+        "ingestion_progress": getattr(state.data_loader.provider, "progress", None),
     }
 
 
