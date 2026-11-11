@@ -2442,7 +2442,10 @@ function generateCustomPdfReport() {
       const cd = chartInstance.data;
       const labels = cd.labels || [];
       const predDs = cd.datasets.find(d => d.label && d.label.toLowerCase().includes("predicted"));
-      const lowerDs = cd.datasets.find(d => d.label && d.label.toLowerCase().includes("lower"));
+      // The lower-bound dataset is labelled "Tightened Conformal Safety
+      // (G_pred - q̂)" — it contains no word "lower", so match those too,
+      // otherwise the report silently loses the lower bound series.
+      const lowerDs = cd.datasets.find(d => d.label && (d.label.toLowerCase().includes("lower") || d.label.toLowerCase().includes("safety") || d.label.toLowerCase().includes("tightened")));
       const upperDs = cd.datasets.find(d => d.label && d.label.toLowerCase().includes("upper"));
       if (predDs && predDs.data && predDs.data.length) {
         params.append("labels", JSON.stringify(labels));
