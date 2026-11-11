@@ -579,9 +579,14 @@ function toggle3DLayer(layerKey) {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+  const savedPin = restoreSavedPin();
   initHeatmapGrid();
   initConformalChart();
   initGisMap();
+  if (savedPin && gisMap && locationMarker) {
+    locationMarker.setLatLng([savedPin.lat, savedPin.lon]);
+    gisMap.setView([savedPin.lat, savedPin.lon], 7);
+  }
   initInputGlobe();
   init3DMap();
   fetchSystemStatus();
@@ -1140,6 +1145,31 @@ function pinnedCoordQuery() {
   const la = parseFloat((document.getElementById("inputLat") || {}).value);
   const lo = parseFloat((document.getElementById("inputLon") || {}).value);
   return (!isNaN(la) && !isNaN(lo)) ? `&lat=${la}&lon=${lo}` : "";
+}
+
+// Pin persistence: remember the last pinned location so a page reload
+// reopens the same place (and its region) instead of resetting to the
+// Illinois default and rebuilding the wrong region's dataset.
+const GW_PIN_KEY = "gw_pinned_location";
+function persistPin(lat, lon) {
+  try {
+    localStorage.setItem(GW_PIN_KEY, JSON.stringify({ lat: parseFloat(lat), lon: parseFloat(lon) }));
+  } catch (e) { /* storage unavailable — persistence is best-effort */ }
+}
+function restoreSavedPin() {
+  try {
+    const raw = localStorage.getItem(GW_PIN_KEY);
+    if (!raw) return null;
+    const pin = JSON.parse(raw);
+    if (!pin || typeof pin.lat !== "number" || typeof pin.lon !== "number" || isNaN(pin.lat) || isNaN(pin.lon)) return null;
+    const latEl = document.getElementById("inputLat");
+    const lonEl = document.getElementById("inputLon");
+    if (latEl) latEl.value = pin.lat;
+    if (lonEl) lonEl.value = pin.lon;
+    return pin;
+  } catch (e) {
+    return null;
+  }
 }
 
 async function fetchDrawdownForecast(horizon = 12) {
@@ -2274,6 +2304,7 @@ async function fetchLocationPredict(lat, lon, horizon) {
   if (document.getElementById("inputLon")) document.getElementById("inputLon").value = lonVal.toFixed(4);
   if (document.getElementById("inputH")) document.getElementById("inputH").value = h;
   if (document.getElementById("inputHVal")) document.getElementById("inputHVal").value = h;
+  persistPin(latVal, lonVal);
 
   try {
     const res = await fetch("/api/v1/forecast/location_predict", {
@@ -2398,6 +2429,7 @@ async function predictPointLocation() {
       // path never called this, so the status bar kept showing the old
       // coordinates after a click changed everything else.
       updateHeaderLocationDisplay(data.query_coordinates.lat, data.query_coordinates.lon);
+      persistPin(data.query_coordinates.lat, data.query_coordinates.lon);
 
       document.getElementById("timestepDisplay").innerText = `Lat: ${data.query_coordinates.lat}°, Lon: ${data.query_coordinates.lon}° (R:${data.grid_cell.row}, C:${data.grid_cell.col})`;
     }
@@ -2423,10 +2455,31 @@ function openCustomReportModal() {
 
   if (hConf) hConf.value = currentH;
   if (hPump) hPump.value = currentH;
-  if (hHydro) hHydro.value = Math.max(24, currentH);
+  if (hHydro) hHydro.value = currentH;
+
+  applyProvenanceOptionVisibility();
 
   modal.classList.remove("hidden");
   modal.style.display = "flex";
+}
+
+// The admin dashboard can hide the provenance option entirely
+// (server-side UI setting). When hidden, the report generator also
+// forces the section off, so it cannot leak into a PDF via a stale
+// checkbox state.
+async function applyProvenanceOptionVisibility() {
+  const row = document.getElementById("rptProvenanceRow");
+  if (!row) return;
+  try {
+    const res = await fetch("/api/v1/status");
+    const data = await res.json();
+    const show = !data.ui_settings || data.ui_settings.show_provenance_option !== false;
+    window._showProvenanceOption = show;
+    row.style.display = show ? "" : "none";
+  } catch (e) {
+    window._showProvenanceOption = true;
+    row.style.display = "";
+  }
 }
 
 function closeCustomReportModal() {
@@ -2469,6 +2522,7 @@ function generateCustomPdfReport() {
 
   const secSummary = isChecked("rptSec_summary");
   const secHeatmap = isChecked("rptSec_heatmap");
+  const secProvenance = window._showProvenanceOption === false ? 0 : isChecked("rptSec_provenance");
   const secStratigraphy = isChecked("rptSec_stratigraphy");
   const secConformal = isChecked("rptSec_conformal");
   const hConformal = getHorizon("rptHorizon_conformal", 12);
@@ -2491,6 +2545,7 @@ function generateCustomPdfReport() {
   params.append("horizon", hConformal);
   params.append("sec_summary", secSummary);
   params.append("sec_heatmap", secHeatmap);
+  params.append("sec_provenance", secProvenance);
   params.append("sec_stratigraphy", secStratigraphy);
   params.append("sec_conformal", secConformal);
   params.append("horizon_conformal", hConformal);
