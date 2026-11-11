@@ -2375,10 +2375,7 @@ function toggleAllReportCheckboxes(checkedState) {
     "rptSec_summary",
     "rptSec_stratigraphy",
     "rptSec_conformal",
-    "rptSec_lp30day",
-    "rptSec_baselines",
     "rptSec_ablation",
-    "rptSec_pumping",
     "rptSec_hydrograph",
     "rptSec_math",
     "rptSec_table",
@@ -2407,11 +2404,13 @@ function generateCustomPdfReport() {
   const secStratigraphy = isChecked("rptSec_stratigraphy");
   const secConformal = isChecked("rptSec_conformal");
   const hConformal = getHorizon("rptHorizon_conformal", 12);
-  const secLp30 = isChecked("rptSec_lp30day");
-  const secBaselines = isChecked("rptSec_baselines");
+  // Removed from PDF printing (2026-11-11): Prediction 2 (30-day LP),
+  // Prediction 3 (baselines), Prediction 5 (pumping quotas) — always off.
+  const secLp30 = 0;
+  const secBaselines = 0;
   const secAblation = isChecked("rptSec_ablation");
-  const secPumping = isChecked("rptSec_pumping");
-  const hPumping = getHorizon("rptHorizon_pumping", 12);
+  const secPumping = 0;
+  const hPumping = 12;
   const secHydrograph = isChecked("rptSec_hydrograph");
   const hHydrograph = getHorizon("rptHorizon_hydrograph", 24);
   const secMath = isChecked("rptSec_math");
