@@ -167,9 +167,12 @@ class RealtimeEarthEngineDataProvider(BaseDataProvider):
         min_lon, min_lat, max_lon, max_lat = self.bounds
         region = ee.Geometry.BBox(min_lon, min_lat, max_lon, max_lat)
 
+        # Newest images first (the previous version took the collection's
+        # first `timesteps` images — for CHIRPS that is 1981, not today).
         col = (ee.ImageCollection(collection_id)
                .filterBounds(region)
                .select(band_name)
+               .sort("system:time_start", False)
                .limit(timesteps))
 
         img_list = col.toList(timesteps)
@@ -178,10 +181,16 @@ class RealtimeEarthEngineDataProvider(BaseDataProvider):
             raise ValueError(f"No images returned for collection {collection_id}")
 
         H, W = self.grid_shape
+        # Resample to the app grid BEFORE sampleRectangle: at native
+        # resolution fine products (e.g. MODIS 500 m) exceed Earth Engine's
+        # 262144-pixel sampleRectangle limit over a whole region bbox
+        # ("Too many pixels in sample ... Got 939463").
+        scale_deg = max((max_lon - min_lon) / W, (max_lat - min_lat) / H)
         rasters = []
         for i in range(min(size, timesteps)):
             img = ee.Image(img_list.get(i))
-            rect = img.sampleRectangle(region=region, defaultValue=0.0)
+            img_grid = img.reproject(crs="EPSG:4326", scale=scale_deg)
+            rect = img_grid.sampleRectangle(region=region, defaultValue=0.0)
             arr = np.array(rect.get(band_name).getInfo(), dtype=np.float32)
 
             if arr.shape != (H, W) and arr.size > 0:
@@ -195,7 +204,9 @@ class RealtimeEarthEngineDataProvider(BaseDataProvider):
         while len(rasters) < timesteps:
             rasters.append(rasters[-1] if rasters else np.zeros((H, W)))
 
-        return np.array(rasters[:timesteps])
+        # Fetched newest-first; restore chronological order (padding above
+        # duplicated the oldest fetched image, which lands at the start).
+        return np.array(rasters[:timesteps])[::-1]
 
     def fetch_piezometer_observations(self, num_wells: int = 16, timesteps: int = 36) -> Dict[str, Any]:
         logger.warning(
