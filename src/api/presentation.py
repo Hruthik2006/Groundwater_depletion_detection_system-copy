@@ -773,7 +773,7 @@ HELP_GUIDE_HTML = r"""<!DOCTYPE html>
   <header class="top-header" style="border-radius: 20px; margin-bottom: 24px;">
     <div class="header-brand" onclick="window.location.href='/'" style="cursor: pointer; margin-left: 40px;"
       title="Click to return to User Dashboard">
-      Satellite Enhanced Groundwater Prediction system
+      AI-Driven Groundwater Depletion Prediction and Sustainable Extraction Optimization System
       <span style="font-size: 0.78rem; opacity: 0.7; font-weight: 400; margin-left: 10px;">&bull; Technical Implementation Guide</span>
     </div>
     <div class="header-nav-right" style="margin-right: 40px; display: flex; align-items: center; gap: 1rem;">
