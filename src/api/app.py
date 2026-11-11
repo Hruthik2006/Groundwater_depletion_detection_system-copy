@@ -481,11 +481,19 @@ def view_location_report(
 
 
 @app.get("/api/v1/forecast/spatial_drawdown")
-def get_spatial_drawdown_forecast(horizon: int = 12):
+def get_spatial_drawdown_forecast(horizon: int = 12, lat: float = None, lon: float = None):
     """
     Serves GeoJSON / JSON raster payload detailing spatial hydraulic head predictions
     across the target basin grid over specified planning horizon H.
+
+    When lat/lon are supplied, the pipeline region is first aligned to those
+    coordinates (same auto-switch as location_predict / reports). Without
+    this, the dashboard chart silently served the previously active region's
+    rasters under newly pinned coordinates until some other action happened
+    to trigger the region rebuild — the graph appeared to "change" on its own.
     """
+    if lat is not None and lon is not None:
+        _ensure_region_for_coords(lat, lon)
     GWLA = state.downscaling_res["GWLA"]  # (T, H, W)
     H, W = GWLA.shape[1], GWLA.shape[2]
     T_max = GWLA.shape[0]
@@ -519,11 +527,14 @@ def get_spatial_drawdown_forecast(horizon: int = 12):
 
 
 @app.get("/api/v1/forecast/spatial_drawdown_3d")
-def get_spatial_drawdown_3d(horizon: int = 12):
+def get_spatial_drawdown_3d(horizon: int = 12, lat: float = None, lon: float = None):
     """
     Returns location-specific 3D hydrogeological stratigraphic vertex meshes
     and depth profiles (Terrain, Vadose, Water Table, Aquifer, Aquitard, Sea Level, Bedrock).
+    Aligns the pipeline region to lat/lon when supplied (see spatial_drawdown).
     """
+    if lat is not None and lon is not None:
+        _ensure_region_for_coords(lat, lon)
     GWLA = state.downscaling_res["GWLA"]  # (T, H, W)
     H, W = GWLA.shape[1], GWLA.shape[2]
     Sy = state.dataset.geophysics["Sy"]
