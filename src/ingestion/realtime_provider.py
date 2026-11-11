@@ -143,30 +143,43 @@ class RealtimeEarthEngineDataProvider(BaseDataProvider):
         # previously discarded two variables that had sampled fine).
         # GLDAS variables are monthly means of the 3-hourly product;
         # CHIRPS pentads and MODIS 8-day ET are summed to monthly totals.
+        #
+        # Sampling is BATCHED: one Earth Engine call per collection (all
+        # 36 monthly composites reduced server-side in a single graph),
+        # instead of one call per image (216 calls, ~2 s each). If a
+        # batched call fails, that collection retries per-window, and if
+        # that fails too, only its variables fall back.
         gldas = "NASA/GLDAS/V021/NOAH/G025/T3H"
-        plan = [
-            ("P", "UCSB-CHG/CHIRPS/PENTAD", "precipitation", "sum"),
-            ("ET", "MODIS/061/MOD16A2", "ET", "sum"),
-            ("SMSA", gldas, "SoilMoi0_10cm_tavg", "mean"),
-            ("SWEA", gldas, "SWE_inst", "mean"),
-            ("CWSA", gldas, "CanopInt_inst", "mean"),
-            ("Qs", gldas, "Qs_acc", "mean"),
+        groups = [
+            ("UCSB-CHG/CHIRPS/PENTAD", [("P", "precipitation")], "sum"),
+            ("MODIS/061/MOD16A2", [("ET", "ET")], "sum"),
+            (gldas, [("SMSA", "SoilMoi0_10cm_tavg"), ("SWEA", "SWE_inst"),
+                     ("CWSA", "CanopInt_inst"), ("Qs", "Qs_acc")], "mean"),
         ]
         rasters: Dict[str, np.ndarray] = {}
         live_vars = []
-        for name, cid, band, agg in plan:
+        for cid, var_bands, agg in groups:
+            sampled: Dict[str, Any] = {}
             try:
-                arr = self._sample_gee_collection(cid, band, windows, agg)
-                if not np.any(arr):
-                    raise ValueError("sampled raster is all zeros (band/property mismatch?)")
-                rasters[name] = arr
-                live_vars.append(name)
+                sampled = self._sample_gee_bands(cid, [b for _, b in var_bands], windows, agg)
             except Exception as e:
-                logger.warning(
-                    f"Live GEE sampling for variable {name} unavailable ({e}); "
-                    "using the calibrated fallback raster for this variable only."
-                )
-                rasters[name] = fallback_rasters[name]
+                logger.warning(f"Batched GEE sampling for {cid} failed ({e}); retrying per-window.")
+                for _, band in var_bands:
+                    try:
+                        sampled[band] = self._sample_gee_collection(cid, band, windows, agg)
+                    except Exception:
+                        sampled[band] = None
+            for name, band in var_bands:
+                arr = sampled.get(band)
+                if arr is not None and np.any(arr):
+                    rasters[name] = arr
+                    live_vars.append(name)
+                else:
+                    logger.warning(
+                        f"Live GEE sampling for variable {name} unavailable; "
+                        "using the calibrated fallback raster for this variable only."
+                    )
+                    rasters[name] = fallback_rasters[name]
 
         # GRACE mascon grids are not sampled from Earth Engine in this
         # provider; TWSA_native stays on the calibrated raster (as before).
@@ -213,7 +226,17 @@ class RealtimeEarthEngineDataProvider(BaseDataProvider):
         logger.info(f"Live GEE monthly windows: {windows[0][0]} → {windows[-1][1]} (anchored to slowest collection).")
         return windows
 
-    def _sample_gee_collection(self, collection_id: str, band_name: str, windows, agg: str = "mean") -> np.ndarray:
+    def _gee_grid(self):
+        """
+        The app's 16x16 cell grid over the region bounds, as an EE
+        FeatureCollection (row 0 = northernmost, matching latlon_to_grid),
+        plus the reduction scale in metres. Sampling reduces images over
+        these cells: sampleRectangle was tried first and is a dead end —
+        at native resolution it exceeds Earth Engine's 262144-pixel limit
+        (MODIS over a region bbox = 939463 px), and reprojecting before
+        sampling made EE evaluate the sample at a wildly wrong scale
+        (2.4e12 px). Cell-mean reduction has no such limit.
+        """
         import ee
 
         if not self.bounds:
@@ -223,19 +246,7 @@ class RealtimeEarthEngineDataProvider(BaseDataProvider):
         min_lon, min_lat, max_lon, max_lat = self.bounds
         region = ee.Geometry.BBox(min_lon, min_lat, max_lon, max_lat)
 
-        base = (ee.ImageCollection(collection_id)
-                .filterBounds(region)
-                .select(band_name))
-
         H, W = self.grid_shape
-        # Sample by reducing each image over the app's own 16x16 cell grid
-        # (one reduceRegions call per image). sampleRectangle was tried
-        # first and is a dead end here: at native resolution it exceeds
-        # Earth Engine's 262144-pixel limit (MODIS over a region bbox =
-        # 939463 px), and reprojecting before sampling made EE evaluate
-        # the sample at a wildly wrong scale (2.4e12 px). Cell-mean
-        # reduction has no such limit and matches the grid the rest of
-        # the pipeline uses (row 0 = northernmost, as in latlon_to_grid).
         d_lon = (max_lon - min_lon) / W
         d_lat = (max_lat - min_lat) / H
         cells = []
@@ -258,6 +269,81 @@ class RealtimeEarthEngineDataProvider(BaseDataProvider):
             (max_lat - min_lat) * 110540.0,
         ) / max(H, W)
         scale_m = float(np.clip(cell_m / 2.0, 1000.0, 30000.0))
+        return region, grid_fc, scale_m
+
+    def _sample_gee_bands(self, collection_id: str, band_names, windows, agg: str = "mean") -> Dict[str, np.ndarray]:
+        """
+        BATCHED sampling: builds all monthly composites server-side,
+        reduces every composite over the cell grid in one mapped graph,
+        and downloads the whole table in a SINGLE getInfo call
+        (36 months x 256 cells = 9216 light features, geometry stripped).
+        Returns {band_name: (T, H, W) array} in window order.
+        """
+        import ee
+
+        region, grid_fc, scale_m = self._gee_grid()
+        H, W = self.grid_shape
+        base = (ee.ImageCollection(collection_id)
+                .filterBounds(region)
+                .select(band_names))
+        first_start = windows[0][0]
+
+        def build(idx):
+            idx = ee.Number(idx)
+            start = ee.Date(first_start).advance(idx, "month")
+            end = start.advance(1, "month")
+            sub = base.filterDate(start, end)
+            img = sub.sum() if agg == "sum" else sub.mean()
+            return img.set("window_index", idx)
+
+        def reduce_one(img):
+            img = ee.Image(img)
+            feats = img.reduceRegions(
+                collection=grid_fc,
+                reducer=ee.Reducer.mean(),
+                scale=scale_m,
+                tileScale=4,
+            )
+            wi = img.get("window_index")
+            # Strip geometry (keeps the payload small) and tag the month.
+            return feats.map(
+                lambda f: ee.Feature(None, ee.Feature(f).toDictionary().set("window_index", wi))
+            )
+
+        composites = ee.ImageCollection(
+            ee.List.sequence(0, len(windows) - 1).map(build)
+        )
+        data = composites.map(reduce_one).flatten().getInfo()
+
+        out = {b: np.zeros((len(windows), H, W), dtype=np.float32) for b in band_names}
+        single = len(band_names) == 1
+        for feat in data.get("features", []):
+            props = feat.get("properties", {})
+            if "window_index" not in props or "row" not in props or "col" not in props:
+                continue
+            wi, r, c = int(props["window_index"]), int(props["row"]), int(props["col"])
+            for b in band_names:
+                # reduceRegions names the value after the reducer for a
+                # single-band image ("mean") and per band for multi-band
+                # images ("<band>" or "<band>_mean") — accept all forms.
+                v = None
+                for key in ((b, f"{b}_mean", "mean") if not single else ("mean", b, f"{b}_mean")):
+                    if props.get(key) is not None:
+                        v = props[key]
+                        break
+                if v is not None:
+                    out[b][wi, r, c] = float(v)
+        return out
+
+    def _sample_gee_collection(self, collection_id: str, band_name: str, windows, agg: str = "mean") -> np.ndarray:
+        """Per-window fallback for _sample_gee_bands (one call per month)."""
+        import ee
+
+        region, grid_fc, scale_m = self._gee_grid()
+        H, W = self.grid_shape
+        base = (ee.ImageCollection(collection_id)
+                .filterBounds(region)
+                .select(band_name))
 
         # One composite per shared month window: sub-monthly products
         # (CHIRPS pentads, MODIS 8-day, GLDAS 3-hourly) are aggregated to
