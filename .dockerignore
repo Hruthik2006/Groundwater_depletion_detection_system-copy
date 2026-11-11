@@ -1,0 +1,10 @@
+.venv
+__pycache__
+*.pyc
+.git
+cache
+data
+tests
+*.log
+report-v2-local.html
+.DS_Store
