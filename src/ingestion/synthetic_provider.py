@@ -88,7 +88,7 @@ class SyntheticDataProvider(BaseDataProvider):
                 sub_block = fine_net[:, mh*scale_h:(mh+1)*scale_h, mw*scale_w:(mw+1)*scale_w]
                 TWSA_coarse[:, mh, mw] = np.cumsum(np.mean(sub_block, axis=(1, 2)) - 5.0) / 2.0
 
-        return {
+        rasters = {
             "P": P,
             "ET": ET,
             "SMSA": SMSA,
@@ -97,6 +97,9 @@ class SyntheticDataProvider(BaseDataProvider):
             "Qs": Qs,
             "TWSA_native": TWSA_coarse,
         }
+        # Provenance for status/report: every variable here is synthetic.
+        self.variable_sources = {k: "synthetic" for k in rasters}
+        return rasters
 
     def fetch_piezometer_observations(self, num_wells: int = 16, timesteps: int = 36) -> Dict[str, Any]:
         np.random.seed(self.seed + 1)
