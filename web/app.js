@@ -2549,44 +2549,7 @@ function applyHeaderCoordinates() {
   predictPointLocation();
 }
 
-// While a data-source switch rebuilds the dataset (a live GEE build takes
-// minutes), poll /api/v1/status and mirror the provider's ingestion progress
-// into the visible loading element — the input screen's loading line while
-// it is showing, otherwise the GEE status badge text — so the user sees
-// what is actually happening instead of a static spinner text.
-// Returns a stop function.
-function startIngestionProgressPolling() {
-  let stopped = false;
-  let polls = 0;
-  const timer = setInterval(async () => {
-    if (stopped || ++polls > 600) {
-      clearInterval(timer);
-      return;
-    }
-    try {
-      const res = await fetch("/api/v1/status");
-      const data = await res.json();
-      const p = data.ingestion_progress;
-      if (!p || !p.message || p.stage === "idle") return;
-      const inputText = document.getElementById("inputScreenLoadingText");
-      const badgeText = document.getElementById("geeStatusText");
-      const el = inputText && inputText.classList.contains("visible") ? inputText : badgeText;
-      if (el) {
-        el.innerText =
-          p.percent != null && p.stage === "sampling" ? `${p.message} (${p.percent}%)` : p.message;
-      }
-    } catch (err) {
-      /* progress polling is best-effort */
-    }
-  }, 1500);
-  return () => {
-    stopped = true;
-    clearInterval(timer);
-  };
-}
-
 async function setDataSourceMode(mode) {
-  const stopProgress = startIngestionProgressPolling();
   try {
     const res = await fetch("/api/v1/config/data_source", {
       method: "POST",
@@ -2598,8 +2561,6 @@ async function setDataSourceMode(mode) {
     await fetchUnifiedControl();
   } catch (err) {
     console.error("Data source mode switch error:", err);
-  } finally {
-    stopProgress();
   }
 }
 
