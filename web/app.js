@@ -501,9 +501,20 @@ async function fetchUnifiedControl() {
   if (!chartInstance) {
     initConformalChart();
   }
-  await predictPointLocation();
-  await fetchDrawdownForecast();
-  await runOptimization();
+  // A click that crosses into a new region blocks in these calls for the
+  // whole Earth Engine rebuild — mirror the live ingestion progress in
+  // the GEE badge meanwhile instead of leaving the UI silent, and
+  // refresh the status-derived UI once the new region's data has landed.
+  const stopProgress = startIngestionProgressPolling();
+  try {
+    await predictPointLocation();
+    await fetchDrawdownForecast();
+    await runOptimization();
+  } finally {
+    stopProgress();
+    await updateGEEStatusBadge();
+    fetchSystemStatus();
+  }
 
   const reportBtn = document.getElementById("btnGenerateReport");
   if (reportBtn) {
@@ -2365,6 +2376,11 @@ async function predictPointLocation() {
           regionLabelSpan.innerText = data.region_name;
         }
       }
+
+      // Keep the header status bar on the same location — the map-click
+      // path never called this, so the status bar kept showing the old
+      // coordinates after a click changed everything else.
+      updateHeaderLocationDisplay(data.query_coordinates.lat, data.query_coordinates.lon);
 
       document.getElementById("timestepDisplay").innerText = `Lat: ${data.query_coordinates.lat}°, Lon: ${data.query_coordinates.lon}° (R:${data.grid_cell.row}, C:${data.grid_cell.col})`;
     }
