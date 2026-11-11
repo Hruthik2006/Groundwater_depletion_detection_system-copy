@@ -1,5 +1,6 @@
 import logging
 import os
+import threading
 from dataclasses import replace
 from typing import Any, Dict, Optional, Tuple
 
@@ -74,6 +75,13 @@ class Pipeline:
         # Benchmark caches are invalidated by any build().
         self.baseline_cache: Optional[Dict[str, Any]] = None
         self.ablation_cache: Optional[Dict[str, Any]] = None
+
+        # Serializes region/mode switches: the dashboard fires parallel
+        # fetches, and the region check-then-build sequence must be atomic —
+        # otherwise two in-flight requests can both observe the old region
+        # and run overlapping rebuilds (seen in the wild as the region
+        # flip-flopping and double "Auto-switching" builds seconds apart).
+        self._build_lock = threading.RLock()
 
     # ------------------------------------------------------------------ build
     def build(self, timesteps: Optional[int] = None, num_wells: Optional[int] = None) -> GroundwaterDataset:
@@ -156,27 +164,35 @@ class Pipeline:
 
     # --------------------------------------------------------------- context switches
     def set_data_mode(self, mode: str, timesteps: Optional[int] = None, num_wells: Optional[int] = None) -> GroundwaterDataset:
-        self.data_loader.set_data_mode(mode)
-        self.config = replace(self.config, data_mode=self.data_loader.data_mode)
-        return self.build(timesteps=timesteps, num_wells=num_wells)
+        with self._build_lock:
+            self.data_loader.set_data_mode(mode)
+            self.config = replace(self.config, data_mode=self.data_loader.data_mode)
+            return self.build(timesteps=timesteps, num_wells=num_wells)
 
     def set_region(self, region_key: str = "illinois", bounds: list = None, timesteps: Optional[int] = None, num_wells: Optional[int] = None) -> GroundwaterDataset:
-        self.data_loader.set_region(region_key=region_key, bounds=bounds)
-        self.config = replace(self.config, region_key=region_key, bounds=bounds)
-        return self.build(timesteps=timesteps, num_wells=num_wells)
+        with self._build_lock:
+            self.data_loader.set_region(region_key=region_key, bounds=bounds)
+            self.config = replace(self.config, region_key=region_key, bounds=bounds)
+            return self.build(timesteps=timesteps, num_wells=num_wells)
 
     def ensure_region_for_coords(self, lat: float, lon: float, timesteps: Optional[int] = None, num_wells: Optional[int] = None) -> Tuple[str, str]:
         """
         Auto-switches region based on (lat, lon) if the point belongs to a
         different hydrogeological preset, then rebuilds the whole chain.
         Returns (current_region, previous_region).
+
+        The detect → compare → rebuild sequence runs under the build lock:
+        with parallel dashboard requests in flight, a second request for the
+        same target region waits, then observes the region already switched
+        and skips the duplicate rebuild.
         """
-        target_region, custom_bounds = self.data_loader.detect_region_key(lat, lon)
-        current_region = self.dataset.metadata.get("region_key") if self.dataset else None
-        if target_region != current_region:
-            logger.info(f"Auto-switching region from '{current_region}' to '{target_region}' for pinned coordinates ({lat}, {lon})")
-            self.set_region(region_key=target_region, bounds=custom_bounds, timesteps=timesteps, num_wells=num_wells)
-        return target_region, current_region or target_region
+        with self._build_lock:
+            target_region, custom_bounds = self.data_loader.detect_region_key(lat, lon)
+            current_region = self.dataset.metadata.get("region_key") if self.dataset else None
+            if target_region != current_region:
+                logger.info(f"Auto-switching region from '{current_region}' to '{target_region}' for pinned coordinates ({lat}, {lon})")
+                self.set_region(region_key=target_region, bounds=custom_bounds, timesteps=timesteps, num_wells=num_wells)
+            return target_region, current_region or target_region
 
     # ------------------------------------------------------------ projection helpers
     def analytic_forecast(self, lat: float, lon: float, horizon: int = 12) -> Dict[str, Any]:
