@@ -646,7 +646,7 @@ function init3DMap() {
   scene3D.add(dirLight2);
 
   // --- STACK LAYER 1: Top Ground Topological Surface Mesh ---
-  const geoTerrain = new THREE.PlaneGeometry(14, 14, 30, 30);
+  const geoTerrain = new THREE.PlaneGeometry(14, 14, 15, 15); // 16x16 vertices, matching the data grid 1:1
   const posTerrain = geoTerrain.attributes.position;
   const count = posTerrain.count;
   const colors = new Float32Array(count * 3);
@@ -866,6 +866,22 @@ function update3DLocationMeshStack(data, targetRow = 10, targetCol = 9) {
     bedrock_base: -3.5,
   };
 
+  // Deform a layer mesh per-vertex from a server field. The vertex
+  // values are absolute scene heights, so the mesh's own z offset is
+  // zeroed while deforming. Returns false when the field is absent
+  // (older responses), letting callers fall back to the flat profile.
+  const deformLayer = (mesh, field) => {
+    if (!mesh || !data.vertices[0] || data.vertices[0][field] === undefined) return false;
+    const pos = mesh.geometry.attributes.position;
+    data.vertices.forEach((v, idx) => {
+      if (idx < pos.count) pos.setZ(idx, v[field]);
+    });
+    pos.needsUpdate = true;
+    mesh.geometry.computeVertexNormals();
+    mesh.position.z = 0;
+    return true;
+  };
+
   // 1. Update Ground Terrain Mesh with location topography
   if (terrainMesh3D) {
     const pos = terrainMesh3D.geometry.attributes.position;
@@ -876,8 +892,8 @@ function update3DLocationMeshStack(data, targetRow = 10, targetCol = 9) {
     terrainMesh3D.geometry.computeVertexNormals();
   }
 
-  // 2. Update Unsaturated Vadose Zone
-  if (vadoseMesh3D) {
+  // 2. Update Unsaturated Vadose Zone (per-cell surface)
+  if (vadoseMesh3D && !deformLayer(vadoseMesh3D, "z_vadose")) {
     vadoseMesh3D.position.z = prof.vadose_base;
   }
 
@@ -891,18 +907,19 @@ function update3DLocationMeshStack(data, targetRow = 10, targetCol = 9) {
     waterMesh3D.geometry.computeVertexNormals();
   }
 
-  // 4. Update Unconfined Aquifer Volume
-  if (aquiferMesh3D) {
+  // 4. Update Unconfined Aquifer Volume (per-cell surface)
+  if (aquiferMesh3D && !deformLayer(aquiferMesh3D, "z_aquifer")) {
     aquiferMesh3D.position.z = prof.aquifer_base;
   }
 
-  // 5. Update Clay Aquitard Layer
-  if (aquitardMesh3D) {
+  // 5. Update Clay Aquitard Layer (per-cell surface)
+  if (aquitardMesh3D && !deformLayer(aquitardMesh3D, "z_aquitard")) {
     aquitardMesh3D.position.z = prof.aquitard_base;
   }
 
   // 6. Update Bedrock Floor Mesh
   if (bedrockMesh3D) {
+    bedrockMesh3D.position.z = 0; // vertices are absolute scene heights
     const pos = bedrockMesh3D.geometry.attributes.position;
     data.vertices.forEach((v, idx) => {
       if (idx < pos.count) pos.setZ(idx, v.z_bedrock);
