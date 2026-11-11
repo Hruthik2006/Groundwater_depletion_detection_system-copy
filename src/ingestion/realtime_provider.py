@@ -157,7 +157,7 @@ class RealtimeEarthEngineDataProvider(BaseDataProvider):
         plan = [
             ("P", "UCSB-CHG/CHIRPS/PENTAD", "precipitation", "sum", "Precipitation (CHIRPS)"),
             ("ET", "MODIS/061/MOD16A2", "ET", "sum", "Evapotranspiration (MODIS)"),
-            ("SMSA", gldas, "SoilMoi0_10cm_tavg", "mean", "Soil moisture (GLDAS)"),
+            ("SMSA", gldas, "SoilMoi0_10cm_inst", "mean", "Soil moisture (GLDAS)"),
             ("SWEA", gldas, "SWE_inst", "mean", "Snow water equivalent (GLDAS)"),
             ("CWSA", gldas, "CanopInt_inst", "mean", "Canopy water storage (GLDAS)"),
             ("Qs", gldas, "Qs_acc", "mean", "Surface runoff (GLDAS)"),
