@@ -833,7 +833,7 @@ function update3DMap(raster2d, targetRow = 10, targetCol = 9) {
 
 async function fetch3DLocationStack(targetRow = 10, targetCol = 9) {
   try {
-    const res = await fetch("/api/v1/forecast/spatial_drawdown_3d?horizon=12");
+    const res = await fetch(`/api/v1/forecast/spatial_drawdown_3d?horizon=12${pinnedCoordQuery()}`);
     const data = await res.json();
     if (data.vertices && data.vertices.length > 0) {
       update3DLocationMeshStack(data, targetRow, targetCol);
@@ -1106,9 +1106,15 @@ async function changeDataMode() {
   }
 }
 
+function pinnedCoordQuery() {
+  const la = parseFloat((document.getElementById("inputLat") || {}).value);
+  const lo = parseFloat((document.getElementById("inputLon") || {}).value);
+  return (!isNaN(la) && !isNaN(lo)) ? `&lat=${la}&lon=${lo}` : "";
+}
+
 async function fetchDrawdownForecast(horizon = 12) {
   try {
-    const res = await fetch(`/api/v1/forecast/spatial_drawdown?horizon=${horizon}`);
+    const res = await fetch(`/api/v1/forecast/spatial_drawdown?horizon=${horizon}${pinnedCoordQuery()}`);
     const data = await res.json();
     const list = data.forecasts || data.forecast_rasters;
     if (list && list.length > 0) {
@@ -1118,7 +1124,15 @@ async function fetchDrawdownForecast(horizon = 12) {
       updateGisHeatmap(lastForecast.raster);
 
       const predictedHeads = list.map(r => r.raster);
-      const qHat = (typeof currentQHat !== "undefined") ? currentQHat : 0.496;
+      // Use the pipeline's calibrated conformal margin from /api/v1/status.
+      // (Previously this read a `currentQHat` variable that is never set
+      // anywhere, so the chart silently fell back to a hard-coded 0.496 m
+      // band that had nothing to do with the calibrated margin.)
+      let qHat = 0.496;
+      try {
+        const st = await (await fetch("/api/v1/status")).json();
+        if (typeof st.conformal_q_hat === "number") qHat = st.conformal_q_hat;
+      } catch (e) { /* keep fallback if status is unreachable */ }
       updateChartData(predictedHeads, qHat, horizon);
     }
   } catch (err) {
