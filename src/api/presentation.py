@@ -31,9 +31,12 @@ def render_location_report(
     ablation: Optional[Dict[str, Any]] = None,
     hydrograph: Optional[Dict[str, Any]] = None,
     chart_series: Optional[Dict[str, Any]] = None,
+    heatmap_raster: Optional[Any] = None,
+    heatmap_month: int = 12,
     data_mode: str = "synthetic",
     horizon: int = 12,
     sec_summary: int = 1,
+    sec_heatmap: int = 1,
     sec_stratigraphy: int = 1,
     sec_conformal: int = 1,
     horizon_conformal: int = 12,
@@ -321,6 +324,45 @@ def render_location_report(
                 "</tr>"
             )
 
+    # ---- spatial GWLA heatmap (same raster + scale as the dashboard) ----
+    # Rendered server-side as inline SVG so it prints crisply: 16x16 cells,
+    # fixed 0-5 m scale mapped to the dashboard's hue ramp (0 = red /
+    # depleted, 200 = blue / saturated), pinned query cell outlined.
+    heatmap_block = ""
+    if sec_heatmap and heatmap_raster is not None:
+        try:
+            _cell_px = 22
+            _rects = []
+            for _r in range(16):
+                for _c in range(16):
+                    _v = float(heatmap_raster[_r][_c])
+                    _norm = min(1.0, max(0.0, _v / 5.0))
+                    _hue = _norm * 200.0
+                    if _r == row and _c == col:
+                        _stroke = ' stroke="#111827" stroke-width="3"'
+                    else:
+                        _stroke = ' stroke="#ffffff" stroke-width="0.5"'
+                    _rects.append(
+                        f'<rect x="{_c * _cell_px}" y="{_r * _cell_px}" width="{_cell_px}" height="{_cell_px}" '
+                        f'fill="hsl({_hue:.0f}, 85%, 45%)"{_stroke}>'
+                        f'<title>Cell ({_r}, {_c}): {_v:.2f} m</title></rect>'
+                    )
+            _pinned_val = float(heatmap_raster[row][col])
+            heatmap_block = f"""
+    <div style="page-break-inside: avoid; margin: 4px 0 8px 0;">
+      <h3 style="font-family: 'Outfit', sans-serif; color: #1e3a8a; font-size: 13.5px; margin: 14px 0 8px;">Spatial Groundwater Level Anomaly (GWLA) Heatmap &mdash; {region_name}</h3>
+      <svg width="{16 * _cell_px}" height="{16 * _cell_px}" viewBox="0 0 {16 * _cell_px} {16 * _cell_px}" xmlns="http://www.w3.org/2000/svg" style="border: 1px solid #cbd5e1; display: block;">{''.join(_rects)}</svg>
+      <div style="display: flex; align-items: center; gap: 8px; margin-top: 6px; font-size: 11px; color: #475569; max-width: {16 * _cell_px}px;">
+        <span>Depleted (0m)</span>
+        <div style="flex: 1; height: 8px; background: linear-gradient(to right, hsl(0, 85%, 45%), hsl(100, 85%, 45%), hsl(200, 85%, 45%)); border: 1px solid #cbd5e1;"></div>
+        <span>Saturated (5m+)</span>
+      </div>
+      <p style="font-size: 11.5px; color: #475569; margin-top: 6px;">GWLA at forecast month {heatmap_month} on the same 0&ndash;5 m scale as the dashboard heatmap. The outlined cell is the pinned query location (Row {row}, Col {col}): <strong>{_pinned_val:.2f} m</strong>.</p>
+    </div>
+            """
+        except Exception:
+            heatmap_block = ""
+
     # Build Section Blocks
     section_blocks = []
 
@@ -355,6 +397,9 @@ def render_location_report(
       </div>
     </div>
         """)
+
+    if heatmap_block:
+        section_blocks.append(heatmap_block)
 
     # 2. Stratigraphic Hydrogeological Profile
     if sec_stratigraphy:
