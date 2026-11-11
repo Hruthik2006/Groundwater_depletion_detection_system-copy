@@ -250,6 +250,9 @@ def get_system_status():
         "conformal_q_hat": state.conformal.q_hat,
         "grid_shape": meta["grid_shape"],
         "provider_serves": meta.get("serves"),
+        # Live GEE ingestion progress (realtime provider only; None for
+        # providers that do not report it) — polled by the loading UI.
+        "ingestion_progress": getattr(state.data_loader.provider, "progress", None),
     }
 
 
@@ -898,6 +901,21 @@ def export_history_csv():
         ])
 
     return PlainTextResponse(content=output.getvalue(), media_type="text/csv", headers={"Content-Disposition": "attachment; filename=groundwater_history_log.csv"})
+
+
+@app.middleware("http")
+async def _static_no_cache(request, call_next):
+    # The dashboard HTML is already served no-store, but /static assets
+    # were not — browsers kept running a cached app.js after code updates
+    # (the asset URL's ?v= tag only changes when someone remembers to bump
+    # it, which is why the ingestion-progress UI once appeared "not
+    # working": the page was running the old script). Force revalidation
+    # of every /static response; unchanged files still come back as
+    # cheap 304s via the ETag StaticFiles sends.
+    response = await call_next(request)
+    if request.url.path.startswith("/static/"):
+        response.headers["Cache-Control"] = "no-cache, must-revalidate"
+    return response
 
 
 # Static web UI mount
