@@ -3,7 +3,26 @@ import numpy as np
 import logging
 from typing import Dict, Any
 from .base_provider import BaseDataProvider
-from .synthetic_provider import SyntheticDataProvider
+from .synthetic_provider import SyntheticDataProvider, REGION_PRESETS
+
+
+def _resolve_bounds(region_key: str, bounds: list) -> list:
+    """
+    Returns usable [min_lon, min_lat, max_lon, max_lat] bounds for a region.
+
+    The data loader passes bounds=None for preset regions. The synthetic
+    provider resolves those from REGION_PRESETS itself, but this provider
+    previously kept None — and the GEE sampler's first step unpacks the
+    bounds, so every preset region crashed with "cannot unpack
+    non-iterable NoneType object" and silently fell back to synthetic
+    rasters. Resolve the same way the synthetic provider does.
+    """
+    if bounds:
+        return bounds
+    key = region_key.lower() if region_key else "illinois"
+    if key in REGION_PRESETS:
+        return list(REGION_PRESETS[key]["bounds"])
+    return [-89.5, 39.5, -87.5, 41.5]
 
 try:
     from dotenv import load_dotenv
@@ -54,7 +73,10 @@ class RealtimeEarthEngineDataProvider(BaseDataProvider):
         self.grid_shape = grid_shape
         self.mascon_grid_shape = mascon_grid_shape
         self.region_key = region_key
-        self.bounds = bounds
+        # NOTE: the fallback provider receives the raw `bounds` argument (it
+        # resolves presets itself, and passing resolved bounds would make it
+        # mislabel the region as a custom bounding box).
+        self.bounds = _resolve_bounds(region_key, bounds)
         self.seed = seed
         self.fallback_if_unauthenticated = fallback_if_unauthenticated
         self.ee_initialized = False
@@ -85,7 +107,7 @@ class RealtimeEarthEngineDataProvider(BaseDataProvider):
     def set_region(self, region_key: str = "illinois", bounds: list = None):
         """Dynamically update geographic study region preset or custom bounds."""
         self.region_key = region_key
-        self.bounds = bounds
+        self.bounds = _resolve_bounds(region_key, bounds)
         self._fallback_provider = SyntheticDataProvider(
             grid_shape=self.grid_shape,
             mascon_grid_shape=self.mascon_grid_shape,
@@ -138,6 +160,10 @@ class RealtimeEarthEngineDataProvider(BaseDataProvider):
         import ee
         from scipy.ndimage import zoom
 
+        if not self.bounds:
+            raise ValueError(
+                f"No bounds resolved for region '{self.region_key}'; cannot sample GEE collections."
+            )
         min_lon, min_lat, max_lon, max_lat = self.bounds
         region = ee.Geometry.BBox(min_lon, min_lat, max_lon, max_lat)
 
