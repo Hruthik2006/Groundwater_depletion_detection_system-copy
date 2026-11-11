@@ -26,6 +26,22 @@ class VadoseDelayEngine:
         kernel_sum = np.sum(kernel)
         return kernel / kernel_sum if kernel_sum > 0 else kernel
 
+    def delay_stats_at(self, DTB_val: float = None, clay_val: float = None):
+        """
+        Mean and modal transit delay (months) of the vadose gamma kernel at
+        one location. Uses the same per-cell parameterisation as
+        compute_effective_recharge (alpha from depth-to-bedrock, beta from
+        clay fraction) so reported delays are the ones actually applied.
+        Returns (mean_months, modal_months, alpha, beta).
+        """
+        if DTB_val is not None and clay_val is not None:
+            a = float(np.clip(1.5 + 0.05 * float(DTB_val), 1.0, 10.0))
+            b = float(np.clip(1.0 + 0.02 * float(clay_val), 0.5, 5.0))
+        else:
+            a, b = float(self.alpha_lag), float(self.beta_lag)
+        kernel = self.generate_gamma_kernel(a, b)
+        return a * b, int(np.argmax(kernel)), a, b
+
     def compute_effective_recharge(
         self,
         P: np.ndarray,
