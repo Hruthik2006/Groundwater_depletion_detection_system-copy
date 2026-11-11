@@ -1,38 +1,6 @@
 document.addEventListener("DOMContentLoaded", () => {
-  fetchAdminTelemetry();
   fetchAdminHistory();
 });
-
-async function fetchAdminTelemetry() {
-  try {
-    const res = await fetch("/api/v1/admin/telemetry");
-    const data = await res.json();
-
-    document.getElementById("statDataMode").innerText = data.data_mode.toUpperCase();
-    document.getElementById("statGridShape").innerText = `Grid: ${data.grid_shape[0]}x${data.grid_shape[1]} (4km)`;
-    document.getElementById("statQHat").innerText = `q̂ = ${data.conformal_q_hat.toFixed(2)}m`;
-    document.getElementById("statAlpha").innerText = `Alpha: ${data.conformal_alpha} (${Math.round((1 - data.conformal_alpha) * 100)}% Safety)`;
-    document.getElementById("statTotalSolves").innerText = data.total_scp_solves;
-    document.getElementById("statAvgCost").innerText = `$${data.avg_scp_cost.toFixed(2)}`;
-
-    updateChannelUI(data.data_mode);
-  } catch (err) {
-    console.error("Admin telemetry error:", err);
-  }
-}
-
-function updateChannelUI(currentMode) {
-  const synOpt = document.getElementById("channelSyntheticOpt");
-  const realOpt = document.getElementById("channelRealtimeOpt");
-
-  if (currentMode === "synthetic") {
-    synOpt.classList.add("active");
-    realOpt.classList.remove("active");
-  } else {
-    realOpt.classList.add("active");
-    synOpt.classList.remove("active");
-  }
-}
 
 async function toggleDataChannel(mode) {
   try {
@@ -43,7 +11,6 @@ async function toggleDataChannel(mode) {
     });
     const data = await res.json();
     alert(data.message);
-    fetchAdminTelemetry();
     fetchAdminHistory();
   } catch (err) {
     console.error("Toggle channel error:", err);
@@ -57,7 +24,6 @@ async function recalibrateConformal() {
     });
     const data = await res.json();
     alert(`Recalibration complete! New q̂ margin: ${data.new_q_hat.toFixed(4)}m`);
-    fetchAdminTelemetry();
     fetchAdminHistory();
   } catch (err) {
     console.error("Recalibrate error:", err);

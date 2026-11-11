@@ -22,64 +22,11 @@
         <span style="font-size: 0.78rem; opacity: 0.7; font-weight: 400; margin-left: 10px;">&bull; Admin Control Center</span>
       </div>
       <div class="header-nav-right" style="margin-right: 40px; display: flex; align-items: center; gap: 1rem;">
-        <!-- Interactive Data Source Switcher in Top Header Bar -->
-        <div class="choice-picker-container" style="position: relative;">
-          <button id="geeStatusBadge" class="gee-status-badge choice-picker-trigger" style="padding: 4px 12px; border-radius: 14px; font-size: 0.75rem; font-weight: 600; background: rgba(16, 185, 129, 0.15); color: #10B981; border: 1px solid rgba(16, 185, 129, 0.3); cursor: pointer; display: flex; align-items: center; gap: 5px;" onclick="toggleChoicePicker('headerSourceMenu', 'geeStatusBadge')" title="Click to switch Data Source Mode (Synthetic / Realtime GEE)">
-            <span id="geeStatusText">GEE READY</span>
-            <span class="choice-picker-arrow">↘</span>
-          </button>
-          <div id="headerSourceMenu" class="choice-picker-menu" style="right: 0; left: auto; min-width: 240px; margin-top: 6px;">
-            <div class="choice-picker-group">
-              <div class="choice-picker-group-title">Data Source Channel</div>
-              <div class="choice-picker-items">
-                <div class="choice-picker-item" onclick="selectChoiceSource('synthetic', 'Synthetic Benchmark Engine')">
-                  <span class="choice-picker-label">⚡ Synthetic Benchmark Engine</span>
-                </div>
-                <div class="choice-picker-item" onclick="selectChoiceSource('realtime', 'NASA EarthData &amp; GEE API')">
-                  <span class="choice-picker-label">🛰️ Realtime NASA EarthData &amp; GEE</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        <div class="status-indicator-pill" style="display: flex; align-items: center; gap: 4px; padding: 3px 8px; background: rgba(255,255,255,0.05); border-radius: 10px;">
-          <span id="dotGreen" class="status-dot dot-green dot-active"></span>
-          <span style="font-size: 0.75rem; color: #4ade80; font-weight: 600; font-family: 'JetBrains Mono', monospace;">ADMIN ACTIVE</span>
-        </div>
-
         <a href="/" class="header-nav-link">Dashboard</a>
         <a href="/admin" class="header-nav-link" style="color: var(--cyan); font-weight: 700;">Admin</a>
         <a href="/help" target="_blank" class="header-nav-link">Help</a>
       </div>
     </header>
-
-    <!-- Telemetry Cards Row -->
-    <section class="telemetry-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px; margin-bottom: 24px;">
-      <div class="card glass-card stat-card" style="border: 1px solid var(--border-color); backdrop-filter: blur(12px); border-radius: 16px; padding: 20px;">
-        <div class="stat-title" style="font-size: 0.8rem; color: var(--text-sub); text-transform: uppercase; letter-spacing: 0.5px;">Active Data Channel</div>
-        <div class="stat-value" id="statDataMode" style="font-size: 1.6rem; font-weight: 700; font-family: 'Outfit', sans-serif; color: var(--cyan); margin: 6px 0;">SYNTHETIC</div>
-        <div class="stat-sub" id="statGridShape" style="font-size: 0.78rem; color: var(--text-sub);">Grid: 16x16 (4km spatial res)</div>
-      </div>
-
-      <div class="card glass-card stat-card" style="border: 1px solid var(--border-color); backdrop-filter: blur(12px); border-radius: 16px; padding: 20px;">
-        <div class="stat-title" style="font-size: 0.8rem; color: var(--text-sub); text-transform: uppercase; letter-spacing: 0.5px;">Conformal Error Margin</div>
-        <div class="stat-value" id="statQHat" style="font-size: 1.6rem; font-weight: 700; font-family: 'Outfit', sans-serif; color: #4ade80; margin: 6px 0;">q̂ = 0.49m</div>
-        <div class="stat-sub" id="statAlpha" style="font-size: 0.78rem; color: var(--text-sub);">Alpha: 0.05 (95% Conformal Coverage)</div>
-      </div>
-
-      <div class="card glass-card stat-card" style="border: 1px solid var(--border-color); backdrop-filter: blur(12px); border-radius: 16px; padding: 20px;">
-        <div class="stat-title" style="font-size: 0.8rem; color: var(--text-sub); text-transform: uppercase; letter-spacing: 0.5px;">Total SCP CCMPC Solves</div>
-        <div class="stat-value" id="statTotalSolves" style="font-size: 1.6rem; font-weight: 700; font-family: 'Outfit', sans-serif; color: #60a5fa; margin: 6px 0;">0</div>
-        <div class="stat-sub" style="font-size: 0.78rem; color: var(--text-sub);">Convex optimization executions</div>
-      </div>
-
-      <div class="card glass-card stat-card" style="border: 1px solid var(--border-color); backdrop-filter: blur(12px); border-radius: 16px; padding: 20px;">
-        <div class="stat-title" style="font-size: 0.8rem; color: var(--text-sub); text-transform: uppercase; letter-spacing: 0.5px;">Avg Optimization Cost</div>
-        <div class="stat-value" id="statAvgCost" style="font-size: 1.6rem; font-weight: 700; font-family: 'Outfit', sans-serif; color: #f59e0b; margin: 6px 0;">0.0</div>
-        <div class="stat-sub" style="font-size: 0.78rem; color: var(--text-sub);">Objective evaluation metric</div>
-      </div>
-    </section>
 
     <!-- Controls & Actions Section -->
     <section class="admin-main-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; margin-bottom: 24px;">
@@ -87,17 +34,6 @@
         <h3 style="font-family: 'Outfit', sans-serif; color: var(--cyan); font-size: 1.15rem; margin-bottom: 6px;">Data Channel Switcher</h3>
         <p class="card-sub" style="color: var(--text-sub); font-size: 0.84rem; margin-bottom: 16px;">Toggle between offline synthetic benchmark and live NASA EarthData / GEE API streams.</p>
         
-        <div class="channel-switch-box" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 18px;">
-          <div class="channel-option" id="channelSyntheticOpt" style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 14px; cursor: pointer; transition: all 0.2s;">
-            <h4 style="font-size: 0.88rem; color: #fff; margin-bottom: 4px;">Synthetic Engine</h4>
-            <p style="font-size: 0.75rem; color: var(--text-sub); margin: 0;">Calibrated physical simulation rasters for offline testing.</p>
-          </div>
-          <div class="channel-option" id="channelRealtimeOpt" style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 14px; cursor: pointer; transition: all 0.2s;">
-            <h4 style="font-size: 0.88rem; color: #fff; margin-bottom: 4px;">Realtime GEE API</h4>
-            <p style="font-size: 0.75rem; color: var(--text-sub); margin: 0;">Live satellite feeds (CHIRPS, MODIS, GLDAS, GRACE mascons).</p>
-          </div>
-        </div>
-
         <div style="display: flex; gap: 12px; flex-wrap: wrap;">
           <button class="header-nav-report-btn" style="background: linear-gradient(135deg, #2563eb, #1d4ed8);" onclick="toggleDataChannel('synthetic')">Set Synthetic Mode</button>
           <button class="header-nav-report-btn" style="background: linear-gradient(135deg, #10b981, #059669);" onclick="toggleDataChannel('realtime')">Set Realtime GEE Mode</button>
@@ -106,11 +42,10 @@
 
       <div class="card glass-card" style="border: 1px solid var(--border-color); backdrop-filter: blur(12px); border-radius: 16px; padding: 24px;">
         <h3 style="font-family: 'Outfit', sans-serif; color: var(--cyan); font-size: 1.15rem; margin-bottom: 6px;">Model Maintenance &amp; Operations</h3>
-        <p class="card-sub" style="color: var(--text-sub); font-size: 0.84rem; margin-bottom: 16px;">Trigger on-demand surrogate conformal recalibrations or export system audit logs.</p>
-        
+        <p class="card-sub" style="color: var(--text-sub); font-size: 0.84rem; margin-bottom: 16px;">Trigger on-demand surrogate conformal recalibrations.</p>
+
         <div style="display: flex; flex-direction: column; gap: 12px;">
           <button class="header-nav-report-btn" style="background: linear-gradient(135deg, #8b5cf6, #6d28d9); padding: 10px 16px; width: 100%; justify-content: center;" onclick="recalibrateConformal()">⚡ Recalibrate Conformal Predictor</button>
-          <a href="/api/v1/admin/export_history" class="header-nav-report-btn" style="background: rgba(255,255,255,0.08); color: var(--text-main); border: 1px solid var(--border-color); text-align: center; text-decoration: none; padding: 10px 16px; display: block; width: 100%;">📥 Export Audit Log (CSV)</a>
         </div>
       </div>
     </section>
@@ -122,7 +57,6 @@
           <h3 style="font-family: 'Outfit', sans-serif; color: var(--cyan); font-size: 1.15rem;">System Audit Trail &amp; History Log</h3>
           <p class="card-sub" style="color: var(--text-sub); font-size: 0.84rem;">Chronological record of channel switches, SCP CCMPC solves, and model calibrations</p>
         </div>
-        <button class="header-nav-report-btn" style="background: rgba(255,255,255,0.08); border: 1px solid var(--border-color); color: var(--text-main);" onclick="fetchAdminHistory()">🔄 Refresh History</button>
       </div>
 
       <div class="table-scroll" style="max-height: 400px; overflow-y: auto; border-radius: 10px; border: 1px solid var(--border-color);">
@@ -145,44 +79,8 @@
         </table>
       </div>
     </section>
-    <!-- REST API Endpoints Reference -->
-    <section class="card glass-card" style="border: 1px solid var(--border-color); backdrop-filter: blur(12px); border-radius: 16px; padding: 24px; margin-top: 8px;">
-      <div style="margin-bottom: 16px;">
-        <h3 style="font-family: 'Outfit', sans-serif; color: var(--cyan); font-size: 1.15rem;">REST API Endpoints Reference</h3>
-        <p class="card-sub" style="color: var(--text-sub); font-size: 0.84rem;">Complete list of all available API routes and their descriptions.</p>
-      </div>
-      <div class="table-scroll" style="border-radius: 10px; border: 1px solid var(--border-color); overflow-x: auto;">
-        <table class="quota-table" style="width: 100%; border-collapse: collapse; font-size: 0.82rem;">
-          <thead>
-            <tr style="background: rgba(0,242,254,0.08); border-bottom: 1px solid var(--border-color);">
-              <th style="padding: 10px 12px; text-align: left; color: #fff; font-family: 'Outfit', sans-serif;">Endpoint</th>
-              <th style="padding: 10px 12px; text-align: left; color: #fff; font-family: 'Outfit', sans-serif;">Method</th>
-              <th style="padding: 10px 12px; text-align: left; color: #fff; font-family: 'Outfit', sans-serif;">Description</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr style="border-bottom: 1px solid var(--border-color);"><td style="padding:9px 12px;color:#94a3b8;font-family:'JetBrains Mono',monospace;"><code>/</code></td><td style="padding:9px 12px;color:#94a3b8;">GET</td><td style="padding:9px 12px;color:#94a3b8;">Main User Control Dashboard</td></tr>
-            <tr style="border-bottom: 1px solid var(--border-color);"><td style="padding:9px 12px;color:#94a3b8;font-family:'JetBrains Mono',monospace;"><code>/admin</code></td><td style="padding:9px 12px;color:#94a3b8;">GET</td><td style="padding:9px 12px;color:#94a3b8;">Admin Control Center Panel</td></tr>
-            <tr style="border-bottom: 1px solid var(--border-color);"><td style="padding:9px 12px;color:#94a3b8;font-family:'JetBrains Mono',monospace;"><code>/help</code></td><td style="padding:9px 12px;color:#94a3b8;">GET</td><td style="padding:9px 12px;color:#94a3b8;">Implementation Guide</td></tr>
-            <tr style="border-bottom: 1px solid var(--border-color);"><td style="padding:9px 12px;color:var(--cyan);font-family:'JetBrains Mono',monospace;"><code>/api/v1/status</code></td><td style="padding:9px 12px;color:#94a3b8;">GET</td><td style="padding:9px 12px;color:#94a3b8;">System status, grid metadata, conformal q̂</td></tr>
-            <tr style="border-bottom: 1px solid var(--border-color);"><td style="padding:9px 12px;color:var(--cyan);font-family:'JetBrains Mono',monospace;"><code>/api/v1/config/location</code></td><td style="padding:9px 12px;color:#94a3b8;">POST</td><td style="padding:9px 12px;color:#94a3b8;">Set geographic region preset or custom bounds</td></tr>
-            <tr style="border-bottom: 1px solid var(--border-color);"><td style="padding:9px 12px;color:var(--cyan);font-family:'JetBrains Mono',monospace;"><code>/api/v1/config/data_source</code></td><td style="padding:9px 12px;color:#94a3b8;">POST</td><td style="padding:9px 12px;color:#94a3b8;">Toggle synthetic ↔ realtime data channel</td></tr>
-            <tr style="border-bottom: 1px solid var(--border-color);"><td style="padding:9px 12px;color:var(--cyan);font-family:'JetBrains Mono',monospace;"><code>/api/v1/forecast/spatial_drawdown</code></td><td style="padding:9px 12px;color:#94a3b8;">GET</td><td style="padding:9px 12px;color:#94a3b8;">GeoJSON raster payloads of predicted hydraulic head states</td></tr>
-            <tr style="border-bottom: 1px solid var(--border-color);"><td style="padding:9px 12px;color:var(--cyan);font-family:'JetBrains Mono',monospace;"><code>/api/v1/forecast/spatial_drawdown_3d</code></td><td style="padding:9px 12px;color:#94a3b8;">GET</td><td style="padding:9px 12px;color:#94a3b8;">3D WebGL mesh vertices [x, y, z_terrain, z_water, z_bedrock]</td></tr>
-            <tr style="border-bottom: 1px solid var(--border-color);"><td style="padding:9px 12px;color:var(--cyan);font-family:'JetBrains Mono',monospace;"><code>/api/v1/forecast/location_predict</code></td><td style="padding:9px 12px;color:#94a3b8;">POST</td><td style="padding:9px 12px;color:#94a3b8;">Localized G(lat, lon, t) prediction &amp; raster slice</td></tr>
-            <tr style="border-bottom: 1px solid var(--border-color);"><td style="padding:9px 12px;color:var(--cyan);font-family:'JetBrains Mono',monospace;"><code>/api/v1/control/pumping_quotas</code></td><td style="padding:9px 12px;color:#94a3b8;">POST</td><td style="padding:9px 12px;color:#94a3b8;">SCP-CCMPC optimal pumping schedule E*₁:H</td></tr>
-            <tr style="border-bottom: 1px solid var(--border-color);"><td style="padding:9px 12px;color:var(--cyan);font-family:'JetBrains Mono',monospace;"><code>/api/v1/reports/view</code></td><td style="padding:9px 12px;color:#94a3b8;">GET</td><td style="padding:9px 12px;color:#94a3b8;">Printable Location Assessment HTML Report (with embedded chart)</td></tr>
-            <tr style="border-bottom: 1px solid var(--border-color);"><td style="padding:9px 12px;color:#f59e0b;font-family:'JetBrains Mono',monospace;"><code>/api/v1/admin/telemetry</code></td><td style="padding:9px 12px;color:#94a3b8;">GET</td><td style="padding:9px 12px;color:#94a3b8;">System telemetry metrics</td></tr>
-            <tr style="border-bottom: 1px solid var(--border-color);"><td style="padding:9px 12px;color:#f59e0b;font-family:'JetBrains Mono',monospace;"><code>/api/v1/admin/history</code></td><td style="padding:9px 12px;color:#94a3b8;">GET</td><td style="padding:9px 12px;color:#94a3b8;">Optimization audit log</td></tr>
-            <tr style="border-bottom: 1px solid var(--border-color);"><td style="padding:9px 12px;color:#f59e0b;font-family:'JetBrains Mono',monospace;"><code>/api/v1/admin/recalibrate</code></td><td style="padding:9px 12px;color:#94a3b8;">POST</td><td style="padding:9px 12px;color:#94a3b8;">Recalibrate conformal predictor q̂</td></tr>
-            <tr><td style="padding:9px 12px;color:#f59e0b;font-family:'JetBrains Mono',monospace;"><code>/api/v1/admin/export_history</code></td><td style="padding:9px 12px;color:#94a3b8;">GET</td><td style="padding:9px 12px;color:#94a3b8;">Export audit log as CSV</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
   </div>
 
   <script src="/static/admin.js"></script>
-  <script src="/static/app.js"></script>
 </body>
 </html>
