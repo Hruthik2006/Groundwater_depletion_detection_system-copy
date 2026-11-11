@@ -464,17 +464,8 @@
                 <div class="tab-dropup-item" onclick="switchPredictionGraphView('conformal', event)">
                   <span>Piezometric Head Forecast &amp; Split Conformal Bounds</span>
                 </div>
-                <div class="tab-dropup-item" onclick="switchPredictionGraphView('lp_30day', event)">
-                  <span>Station CGWBHU2335 Worked 30-Day LP</span>
-                </div>
-                <div class="tab-dropup-item" onclick="switchPredictionGraphView('baselines', event)">
-                  <span>Paper Baseline ML Models (RF, SVR, LSTM)</span>
-                </div>
                 <div class="tab-dropup-item" onclick="switchPredictionGraphView('ablation', event)">
                   <span>Autoregressive Level History Ablation</span>
-                </div>
-                <div class="tab-dropup-item" onclick="switchPredictionGraphView('pumping_quotas', event)">
-                  <span>12-Month Multi-Well SCP Pumping Quotas</span>
                 </div>
                 <div class="tab-dropup-item" onclick="switchPredictionGraphView('hydrograph', event)">
                   <span>Hydrograph (Rainfall, Vadose Delay &amp; Head)</span>
@@ -737,7 +728,7 @@
           </div>
           <div class="report-item-row">
             <label class="report-checkbox-label">
-              <input type="checkbox" id="rptSec_math" class="round-radio-input" checked />
+              <input type="checkbox" id="rptSec_math" class="round-radio-input" />
               <span class="round-radio-indicator"><span class="round-radio-dot"></span></span>
               <span class="report-item-title">Mathematical &amp; Physics Formulations (Darcy PDE, Gamma Convolution,
                 Conformal Quantile, SCP MPC)</span>
