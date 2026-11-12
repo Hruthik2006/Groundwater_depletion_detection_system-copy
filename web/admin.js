@@ -16,8 +16,38 @@ async function loadUiSettings() {
         ? "Currently: the provenance option is VISIBLE in the PDF generator pop-up."
         : "Currently: the provenance option is HIDDEN in the PDF generator pop-up (and never included in generated reports).";
     }
+    const sToggle = document.getElementById("adminSensorsToggle");
+    const sStateEl = document.getElementById("adminSensorsState");
+    const showSensors = !data.ui_settings || data.ui_settings.show_sensors !== false;
+    if (sToggle) sToggle.checked = showSensors;
+    if (sStateEl) {
+      sStateEl.innerText = showSensors
+        ? "Currently: the IoT sensor panel is VISIBLE on the dashboard and the sensor option appears in the PDF generator pop-up."
+        : "Currently: the IoT sensor panel is HIDDEN on the dashboard and sensor readings are excluded from generated reports.";
+    }
   } catch (err) {
     console.error("UI settings load error:", err);
+  }
+}
+
+async function toggleSensorsVisibility(checkbox) {
+  try {
+    const res = await fetch("/api/v1/admin/ui-settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ show_sensors: checkbox.checked }),
+    });
+    const data = await res.json();
+    if (data.status === "success") {
+      loadUiSettings();
+      fetchAdminHistory();
+    } else {
+      alert("Could not save the setting.");
+      checkbox.checked = !checkbox.checked;
+    }
+  } catch (err) {
+    console.error("UI settings save error:", err);
+    checkbox.checked = !checkbox.checked;
   }
 }
 
