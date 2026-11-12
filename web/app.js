@@ -2537,11 +2537,9 @@ async function renderIotDashboardChart() {
 // ---------------------------------------------------------------------------
 // Live field sensors (ThingSpeak IoT rig). The server proxies the feed —
 // the read key never reaches the browser — and caches it for 20 s, so
-// this 30 s poll is cheap. States: not configured on the server, feed
-// unreachable, or live tiles + a water-level history chart.
-let sensorChartInstance = null;
+// this 30 s poll is cheap. The readings live in the Predictions menu's
+// IoT Dashboard view (Plot 2); this poller just keeps its payload fresh.
 const SENSOR_UNITS = { temperature: "\u00b0C", humidity: "%" };
-const SENSOR_ORDER = ["temperature", "humidity", "soil_moisture", "water_level", "discharge_flow"];
 
 function fmtSensorValue(key, v) {
   if (v === null || v === undefined || isNaN(v)) return "\u2014";
@@ -2550,18 +2548,16 @@ function fmtSensorValue(key, v) {
 }
 
 // The admin dashboard can hide the IoT sensors entirely (server-side
-// UI setting): the dashboard card and the PDF pop-up option both
-// disappear, the poller stops, and the report generator forces the
-// section off. Re-checked every poll cycle, so toggling it back on in
-// the admin panel restores the panel without a page reload.
+// UI setting): the menu item and the PDF pop-up option both disappear,
+// the poller stops, and the report generator forces the section off.
+// Re-checked every poll cycle, so toggling it back on in the admin
+// panel restores the menu item without a page reload.
 async function applySensorVisibility() {
   try {
     const res = await fetch("/api/v1/status");
     const data = await res.json();
     const show = !data.ui_settings || data.ui_settings.show_sensors !== false;
     window._showSensors = show;
-    const card = document.getElementById("sensorCard");
-    if (card) card.style.display = show ? "" : "none";
     const row = document.getElementById("rptSensorsRow");
     if (row) row.style.display = show ? "" : "none";
     const menuItem = document.getElementById("menuItemIot");
@@ -2573,64 +2569,14 @@ async function applySensorVisibility() {
 
 async function fetchSensorData() {
   if (window._showSensors === false) return;
-  const stateEl = document.getElementById("sensorState");
-  const tilesEl = document.getElementById("sensorTiles");
-  const updEl = document.getElementById("sensorUpdated");
-  if (!tilesEl) return;
   try {
     const res = await fetch("/api/v1/sensors/thingspeak?results=100");
     const data = await res.json();
-    if (!data.configured) {
-      if (stateEl) stateEl.innerText = "ThingSpeak is not configured on the server \u2014 set THINGSPEAK_READ_KEY in the server .env to enable live sensor readings.";
-      if (updEl) updEl.innerText = "not configured";
-      return;
-    }
-    if (data.error || !data.latest) {
-      if (stateEl) stateEl.innerText = "Sensor feed unreachable right now \u2014 retrying automatically.";
-      if (updEl) updEl.innerText = "offline";
-      return;
-    }
-    if (stateEl) stateEl.innerText = "";
-    const labels = data.labels || {};
-    tilesEl.innerHTML = SENSOR_ORDER.map(k =>
-      '<div class="sensor-tile"><div class="sensor-label">' + (labels[k] || k) + '</div>' +
-      '<div class="sensor-value">' + fmtSensorValue(k, data.latest[k]) + "</div></div>"
-    ).join("");
-    if (updEl) {
-      const t = new Date(data.latest.timestamp);
-      updEl.innerText = "entry #" + data.latest.entry_id + " \u00b7 " + (isNaN(t) ? data.latest.timestamp : t.toLocaleTimeString());
-    }
     window._lastSensorData = data;
-    renderSensorChart(data.series ? data.series.water_level || [] : []);
     if (currentPredictionGraphView === "iot") renderIotDashboardChart();
   } catch (e) {
-    if (stateEl) stateEl.innerText = "Sensor feed unreachable right now \u2014 retrying automatically.";
+    console.error("Sensor fetch error:", e);
   }
-}
-
-function renderSensorChart(points) {
-  const canvas = document.getElementById("sensorWaterChart");
-  if (!canvas || typeof Chart === "undefined" || !points.length) return;
-  const labels = points.map(pt => { const d = new Date(pt[0]); return isNaN(d) ? pt[0] : d.toLocaleTimeString(); });
-  const values = points.map(pt => pt[1]);
-  if (sensorChartInstance) {
-    sensorChartInstance.data.labels = labels;
-    sensorChartInstance.data.datasets[0].data = values;
-    sensorChartInstance.update();
-    return;
-  }
-  sensorChartInstance = new Chart(canvas.getContext("2d"), {
-    type: "line",
-    data: { labels: labels, datasets: [{ label: "Water Level", data: values, borderColor: "#38bdf8", backgroundColor: "rgba(56, 189, 248, 0.15)", fill: true, tension: 0.25, pointRadius: 0 }] },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false }, title: { display: true, text: "Water level \u2014 recent readings", color: "#94a3b8", font: { size: 11 } } },
-      scales: {
-        x: { ticks: { maxTicksLimit: 6, color: "#94a3b8", font: { size: 10 } }, grid: { display: false } },
-        y: { ticks: { color: "#94a3b8", font: { size: 10 } }, grid: { color: "rgba(148, 163, 184, 0.15)" } }
-      }
-    }
-  });
 }
 
 // The admin dashboard can hide the provenance option entirely
