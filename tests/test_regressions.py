@@ -184,3 +184,33 @@ def test_report_sensor_block_toggle(monkeypatch):
     res_off = client.get("/api/v1/reports/view?lat=40.5&lon=-88.5&sec_sensors=0")
     assert res_off.status_code == 200
     assert "Field Sensor Readings" not in res_off.text
+
+
+def test_admin_sensors_visibility_and_report_enforcement(monkeypatch):
+    """The admin IoT-sensors switch: partial updates must not clobber
+    the provenance flag, /status must expose it, and the report must
+    exclude sensor readings while it is off — even when the request
+    explicitly asks for them (stale client)."""
+    import importlib
+
+    app_module = importlib.import_module("src.api.app")
+    monkeypatch.setattr(app_module, "_fetch_thingspeak", lambda results=100: _CANNED_TS)
+    client = TestClient(app)
+    try:
+        res = client.post("/api/v1/admin/ui-settings", json={"show_sensors": False})
+        assert res.status_code == 200
+        settings = res.json()["ui_settings"]
+        assert settings["show_sensors"] is False
+        assert "show_provenance_option" in settings  # not clobbered
+
+        status = client.get("/api/v1/status").json()
+        assert status["ui_settings"]["show_sensors"] is False
+
+        rep = client.get("/api/v1/reports/view?lat=40.5&lon=-88.5&sec_sensors=1")
+        assert rep.status_code == 200
+        assert "Field Sensor Readings" not in rep.text
+    finally:
+        client.post("/api/v1/admin/ui-settings", json={"show_sensors": True})
+
+    rep = client.get("/api/v1/reports/view?lat=40.5&lon=-88.5&sec_sensors=1")
+    assert "Field Sensor Readings" in rep.text
