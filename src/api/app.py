@@ -1,6 +1,9 @@
 import os
 import json
+import time
 import logging
+import urllib.request
+import urllib.error
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse
@@ -264,6 +267,100 @@ class PumpingQuotaRequest(BaseModel):
 
 
 
+# ---------------------------------------------------------------------------
+# ThingSpeak field-sensor channel (borewell IoT rig).
+#
+# The read key lives ONLY in the server environment (.env:
+# THINGSPEAK_READ_KEY, THINGSPEAK_CHANNEL_ID) — it is never sent to the
+# browser or committed. Responses are cached for 20 s so dashboard
+# polling cannot hammer the ThingSpeak API.
+_ts_cache: Dict[str, Any] = {"fetched_at": 0.0, "payload": None, "results": None}
+
+_TS_FIELDS = [
+    ("temperature", "field1"),
+    ("humidity", "field2"),
+    ("soil_moisture", "field3"),
+    ("water_level", "field4"),
+    ("discharge_flow", "field5"),
+]
+
+
+def _fetch_thingspeak(results: int = 100) -> Dict[str, Any]:
+    channel_id = os.getenv("THINGSPEAK_CHANNEL_ID", "3575415")
+    read_key = os.getenv("THINGSPEAK_READ_KEY")
+    if not read_key:
+        return {
+            "configured": False,
+            "channel": {"id": channel_id, "name": None, "description": None},
+            "labels": {},
+            "latest": None,
+            "series": {},
+            "error": None,
+        }
+    now = time.time()
+    if (
+        _ts_cache["payload"] is not None
+        and _ts_cache["results"] == results
+        and now - _ts_cache["fetched_at"] < 20
+    ):
+        return _ts_cache["payload"]
+    url = (
+        f"https://api.thingspeak.com/channels/{channel_id}/feeds.json"
+        f"?api_key={read_key}&results={int(results)}"
+    )
+    try:
+        with urllib.request.urlopen(url, timeout=10) as resp:
+            raw = json.loads(resp.read().decode("utf-8"))
+    except Exception as ex:
+        return {
+            "configured": True,
+            "channel": {"id": channel_id, "name": None, "description": None},
+            "labels": {},
+            "latest": None,
+            "series": {},
+            "error": f"ThingSpeak fetch failed: {ex}",
+        }
+    ch = raw.get("channel", {})
+    labels = {key: ch.get(field, key) for key, field in _TS_FIELDS}
+
+    def _num(v):
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            return None
+
+    series: Dict[str, list] = {key: [] for key, _ in _TS_FIELDS}
+    latest = None
+    for feed in raw.get("feeds", []):
+        ts = feed.get("created_at")
+        row: Dict[str, Any] = {"timestamp": ts, "entry_id": feed.get("entry_id")}
+        for key, field in _TS_FIELDS:
+            val = _num(feed.get(field))
+            row[key] = val
+            if val is not None:
+                series[key].append([ts, val])
+        latest = row
+    payload = {
+        "configured": True,
+        "channel": {
+            "id": ch.get("id", channel_id),
+            "name": ch.get("name"),
+            "description": ch.get("description"),
+        },
+        "labels": labels,
+        "latest": latest,
+        "series": series,
+        "error": None,
+    }
+    _ts_cache.update({"fetched_at": now, "payload": payload, "results": results})
+    return payload
+
+
+@app.get("/api/v1/sensors/thingspeak")
+def get_thingspeak_sensors(results: int = 100):
+    return _fetch_thingspeak(results)
+
+
 @app.get("/api/v1/status")
 def get_system_status():
     meta = state.dataset.metadata
@@ -367,6 +464,7 @@ def view_location_report(
     sec_summary: int = 1,
     sec_heatmap: int = 1,
     sec_provenance: int = 1,
+    sec_sensors: int = 1,
     sec_stratigraphy: int = 1,
     sec_conformal: int = 1,
     horizon_conformal: int = 12,
@@ -526,6 +624,15 @@ def view_location_report(
         if _lw:
             provenance_windows = _lw
 
+    # Live field-sensor snapshot for the report's sensor block. Omitted
+    # silently when ThingSpeak is unconfigured or unreachable — a report
+    # must never fail because the hardware feed is down.
+    sensor_data = None
+    if sec_sensors:
+        _ts = _fetch_thingspeak(100)
+        if _ts.get("configured") and _ts.get("latest"):
+            sensor_data = _ts
+
     html_content = render_location_report(
         lat=lat,
         lon=lon,
@@ -546,11 +653,13 @@ def view_location_report(
         heatmap_month=h_len,
         provenance_rows=provenance_rows,
         provenance_windows=provenance_windows,
+        sensor_data=sensor_data,
         data_mode=c.data_mode,
         horizon=horizon,
         sec_summary=sec_summary,
         sec_heatmap=sec_heatmap,
         sec_provenance=sec_provenance,
+        sec_sensors=sec_sensors,
         sec_stratigraphy=sec_stratigraphy,
         sec_conformal=sec_conformal,
         horizon_conformal=horizon_conformal,
