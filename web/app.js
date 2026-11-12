@@ -590,6 +590,8 @@ document.addEventListener("DOMContentLoaded", () => {
   initInputGlobe();
   init3DMap();
   fetchSystemStatus();
+  fetchSensorData();
+  setInterval(fetchSensorData, 30000);
   fetchDrawdownForecast();
   fetchDepletionAlerts();
   runOptimization();
@@ -2463,6 +2465,80 @@ function openCustomReportModal() {
   modal.style.display = "flex";
 }
 
+// ---------------------------------------------------------------------------
+// Live field sensors (ThingSpeak IoT rig). The server proxies the feed —
+// the read key never reaches the browser — and caches it for 20 s, so
+// this 30 s poll is cheap. States: not configured on the server, feed
+// unreachable, or live tiles + a water-level history chart.
+let sensorChartInstance = null;
+const SENSOR_UNITS = { temperature: "\u00b0C", humidity: "%" };
+const SENSOR_ORDER = ["temperature", "humidity", "soil_moisture", "water_level", "discharge_flow"];
+
+function fmtSensorValue(key, v) {
+  if (v === null || v === undefined || isNaN(v)) return "\u2014";
+  const num = key === "soil_moisture" ? Math.round(v) : Math.round(v * 100) / 100;
+  return num + (SENSOR_UNITS[key] ? " " + SENSOR_UNITS[key] : "");
+}
+
+async function fetchSensorData() {
+  const stateEl = document.getElementById("sensorState");
+  const tilesEl = document.getElementById("sensorTiles");
+  const updEl = document.getElementById("sensorUpdated");
+  if (!tilesEl) return;
+  try {
+    const res = await fetch("/api/v1/sensors/thingspeak?results=100");
+    const data = await res.json();
+    if (!data.configured) {
+      if (stateEl) stateEl.innerText = "ThingSpeak is not configured on the server \u2014 set THINGSPEAK_READ_KEY in the server .env to enable live sensor readings.";
+      if (updEl) updEl.innerText = "not configured";
+      return;
+    }
+    if (data.error || !data.latest) {
+      if (stateEl) stateEl.innerText = "Sensor feed unreachable right now \u2014 retrying automatically.";
+      if (updEl) updEl.innerText = "offline";
+      return;
+    }
+    if (stateEl) stateEl.innerText = "";
+    const labels = data.labels || {};
+    tilesEl.innerHTML = SENSOR_ORDER.map(k =>
+      '<div class="sensor-tile"><div class="sensor-label">' + (labels[k] || k) + '</div>' +
+      '<div class="sensor-value">' + fmtSensorValue(k, data.latest[k]) + "</div></div>"
+    ).join("");
+    if (updEl) {
+      const t = new Date(data.latest.timestamp);
+      updEl.innerText = "entry #" + data.latest.entry_id + " \u00b7 " + (isNaN(t) ? data.latest.timestamp : t.toLocaleTimeString());
+    }
+    renderSensorChart(data.series ? data.series.water_level || [] : []);
+  } catch (e) {
+    if (stateEl) stateEl.innerText = "Sensor feed unreachable right now \u2014 retrying automatically.";
+  }
+}
+
+function renderSensorChart(points) {
+  const canvas = document.getElementById("sensorWaterChart");
+  if (!canvas || typeof Chart === "undefined" || !points.length) return;
+  const labels = points.map(pt => { const d = new Date(pt[0]); return isNaN(d) ? pt[0] : d.toLocaleTimeString(); });
+  const values = points.map(pt => pt[1]);
+  if (sensorChartInstance) {
+    sensorChartInstance.data.labels = labels;
+    sensorChartInstance.data.datasets[0].data = values;
+    sensorChartInstance.update();
+    return;
+  }
+  sensorChartInstance = new Chart(canvas.getContext("2d"), {
+    type: "line",
+    data: { labels: labels, datasets: [{ label: "Water Level", data: values, borderColor: "#38bdf8", backgroundColor: "rgba(56, 189, 248, 0.15)", fill: true, tension: 0.25, pointRadius: 0 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, title: { display: true, text: "Water level \u2014 recent readings", color: "#94a3b8", font: { size: 11 } } },
+      scales: {
+        x: { ticks: { maxTicksLimit: 6, color: "#94a3b8", font: { size: 10 } }, grid: { display: false } },
+        y: { ticks: { color: "#94a3b8", font: { size: 10 } }, grid: { color: "rgba(148, 163, 184, 0.15)" } }
+      }
+    }
+  });
+}
+
 // The admin dashboard can hide the provenance option entirely
 // (server-side UI setting). When hidden, the report generator also
 // forces the section off, so it cannot leak into a PDF via a stale
@@ -2523,6 +2599,7 @@ function generateCustomPdfReport() {
   const secSummary = isChecked("rptSec_summary");
   const secHeatmap = isChecked("rptSec_heatmap");
   const secProvenance = window._showProvenanceOption === false ? 0 : isChecked("rptSec_provenance");
+  const secSensors = isChecked("rptSec_sensors");
   const secStratigraphy = isChecked("rptSec_stratigraphy");
   const secConformal = isChecked("rptSec_conformal");
   const hConformal = getHorizon("rptHorizon_conformal", 12);
@@ -2546,6 +2623,7 @@ function generateCustomPdfReport() {
   params.append("sec_summary", secSummary);
   params.append("sec_heatmap", secHeatmap);
   params.append("sec_provenance", secProvenance);
+  params.append("sec_sensors", secSensors);
   params.append("sec_stratigraphy", secStratigraphy);
   params.append("sec_conformal", secConformal);
   params.append("horizon_conformal", hConformal);
