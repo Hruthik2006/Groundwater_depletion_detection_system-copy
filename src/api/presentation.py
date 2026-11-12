@@ -35,11 +35,13 @@ def render_location_report(
     heatmap_month: int = 12,
     provenance_rows: Optional[Any] = None,
     provenance_windows: Optional[Any] = None,
+    sensor_data: Optional[Any] = None,
     data_mode: str = "synthetic",
     horizon: int = 12,
     sec_summary: int = 1,
     sec_heatmap: int = 1,
     sec_provenance: int = 1,
+    sec_sensors: int = 1,
     sec_stratigraphy: int = 1,
     sec_conformal: int = 1,
     horizon_conformal: int = 12,
@@ -426,6 +428,41 @@ def render_location_report(
             + _prov_rows +
             "</tbody></table>"
             + _prov_win +
+            "</div>"
+        )
+
+    # Field sensor snapshot: live hardware readings from the borewell
+    # IoT rig (ThingSpeak), independent of the modelled grid estimates.
+    if sec_sensors and sensor_data and sensor_data.get("latest"):
+        _latest = sensor_data["latest"]
+        _labels = sensor_data.get("labels", {})
+        _units = {"temperature": " \u00b0C", "humidity": " %"}
+        _order = ["temperature", "humidity", "soil_moisture", "water_level", "discharge_flow"]
+        _srows = ""
+        for _k in _order:
+            _v = _latest.get(_k)
+            _disp = f"{_v:.2f}{_units.get(_k, '')}" if isinstance(_v, (int, float)) else "\u2014"
+            _srows += "<tr><td>" + str(_labels.get(_k, _k)) + "</td><td>" + _disp + "</td></tr>"
+        _wl = [v for _ts, v in (sensor_data.get("series", {}).get("water_level") or [])]
+        _wl_line = ""
+        if _wl:
+            _wl_line = (
+                '<p style="font-size: 11.5px; color: #475569; margin-top: 6px;">'
+                "Water level over the last " + str(len(_wl)) + " readings: min " + f"{min(_wl):.2f}"
+                + ", max " + f"{max(_wl):.2f}" + ", latest " + f"{_wl[-1]:.2f}" + ".</p>"
+            )
+        _ch_name = (sensor_data.get("channel") or {}).get("name") or "IGMS"
+        section_blocks.append(
+            '<div style="page-break-inside: avoid; margin: 4px 0 8px 0;">'
+            + "<h3 style=\"font-family: 'Outfit', sans-serif; color: #1e3a8a; font-size: 13.5px; margin: 14px 0 8px;\">Field Sensor Readings \u2014 " + str(_ch_name) + " Borewell Rig (ThingSpeak, Live)</h3>"
+            + "<table><thead><tr><th>Sensor</th><th>Latest Reading</th></tr></thead><tbody>"
+            + _srows +
+            "</tbody></table>"
+            + '<p style="font-size: 11.5px; color: #475569; margin-top: 6px;">Reading taken at '
+            + str(_latest.get("timestamp", ""))
+            + " (UTC), entry #" + str(_latest.get("entry_id", ""))
+            + ". Live hardware measurements at the monitoring borewell \u2014 independent of the modelled grid estimates above.</p>"
+            + _wl_line +
             "</div>"
         )
 
