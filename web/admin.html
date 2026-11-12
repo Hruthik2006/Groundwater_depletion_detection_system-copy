@@ -49,6 +49,12 @@
           <span>Show <strong>Data Provenance Table</strong> option in the PDF generator pop-up</span>
         </label>
         <p id="adminProvenanceState" style="color: var(--text-sub); font-size: 0.8rem; margin-top: 10px;">Loading current setting…</p>
+
+        <label style="display: flex; align-items: center; gap: 12px; cursor: pointer; font-size: 0.92rem; color: #e2e8f0; margin-top: 18px;">
+          <input type="checkbox" id="adminSensorsToggle" onchange="toggleSensorsVisibility(this)" style="width: 20px; height: 20px; accent-color: #2563eb; cursor: pointer;" />
+          <span>Show <strong>IoT Field Sensors</strong> (dashboard panel + PDF report option)</span>
+        </label>
+        <p id="adminSensorsState" style="color: var(--text-sub); font-size: 0.8rem; margin-top: 10px;">Loading current setting…</p>
       </div>
 
       <div class="card glass-card" style="border: 1px solid var(--border-color); backdrop-filter: blur(12px); border-radius: 16px; padding: 24px;">
