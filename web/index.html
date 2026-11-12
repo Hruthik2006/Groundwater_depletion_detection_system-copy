@@ -529,6 +529,21 @@
                 </div>
               </div>
             </div>
+            <!-- Live Field Sensors (ThingSpeak IoT rig) -->
+            <div class="card glass-card" id="sensorCard" style="margin-top: 1rem; flex: 0 0 auto;">
+              <div class="card-header flex-between flex-wrap gap-2">
+                <div>
+                  <h3>Live Field Sensors &mdash; IGMS Borewell Rig</h3>
+                  <p class="card-sub">ThingSpeak IoT hardware at the monitoring borewell &middot; auto-refreshes every 30 s</p>
+                </div>
+                <span class="horizon-badge" id="sensorUpdated">waiting for first reading&hellip;</span>
+              </div>
+              <div id="sensorState" class="card-sub" style="margin-bottom: 6px;"></div>
+              <div class="sensor-tiles" id="sensorTiles"></div>
+              <div style="height: 110px; margin-top: 8px;">
+                <canvas id="sensorWaterChart"></canvas>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -672,6 +687,13 @@
               <input type="checkbox" id="rptSec_provenance" class="round-radio-input" checked />
               <span class="round-radio-indicator"><span class="round-radio-dot"></span></span>
               <span class="report-item-title">Data Provenance Table (Source of Every Variable)</span>
+            </label>
+          </div>
+          <div class="report-item-row">
+            <label class="report-checkbox-label">
+              <input type="checkbox" id="rptSec_sensors" class="round-radio-input" checked />
+              <span class="round-radio-indicator"><span class="round-radio-dot"></span></span>
+              <span class="report-item-title">Field Sensor Readings (ThingSpeak Live Hardware)</span>
             </label>
           </div>
           <div class="report-item-row">
@@ -848,7 +870,7 @@
     </div>
   </div>
 
-  <script src="/static/app.js?v=20261112a"></script>
+  <script src="/static/app.js?v=20261112b"></script>
 </body>
 
 </html>
