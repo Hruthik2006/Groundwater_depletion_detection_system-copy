@@ -108,3 +108,79 @@ def test_report_heatmap_and_provenance_toggles():
     assert res_off.status_code == 200
     assert res_off.text.count("<rect") == 0
     assert "Data Provenance" not in res_off.text
+
+
+# ---------------------------------------------------------------------------
+# ThingSpeak field-sensor integration (November 2026). Tests never touch
+# the real network: the fetch helper is monkeypatched or the key removed.
+# ---------------------------------------------------------------------------
+
+_CANNED_TS = {
+    "configured": True,
+    "channel": {"id": 3575415, "name": "IGMS", "description": "borewell rig"},
+    "labels": {
+        "temperature": "Temperature",
+        "humidity": "Humidity",
+        "soil_moisture": "Soil Moisture",
+        "water_level": "Water Level",
+        "discharge_flow": "Discharge Flow",
+    },
+    "latest": {
+        "timestamp": "2026-11-12T06:40:35Z",
+        "entry_id": 114,
+        "temperature": 31.9,
+        "humidity": 28.6,
+        "soil_moisture": 5.0,
+        "water_level": 7.46,
+        "discharge_flow": 0.0,
+    },
+    "series": {"water_level": [["2026-11-12T06:40:20Z", 7.46], ["2026-11-12T06:40:35Z", 7.44]]},
+    "error": None,
+}
+
+
+def test_thingspeak_unconfigured_is_graceful(monkeypatch):
+    import importlib
+
+    app_module = importlib.import_module("src.api.app")
+
+    monkeypatch.delenv("THINGSPEAK_READ_KEY", raising=False)
+    app_module._ts_cache.update({"fetched_at": 0.0, "payload": None, "results": None})
+    client = TestClient(app)
+    res = client.get("/api/v1/sensors/thingspeak")
+    assert res.status_code == 200
+    body = res.json()
+    assert body["configured"] is False
+    assert body["latest"] is None
+
+
+def test_thingspeak_endpoint_serves_normalized_feed(monkeypatch):
+    import importlib
+
+    app_module = importlib.import_module("src.api.app")
+
+    monkeypatch.setattr(app_module, "_fetch_thingspeak", lambda results=100: _CANNED_TS)
+    client = TestClient(app)
+    res = client.get("/api/v1/sensors/thingspeak")
+    assert res.status_code == 200
+    body = res.json()
+    assert body["channel"]["name"] == "IGMS"
+    assert body["latest"]["water_level"] == 7.46
+
+
+def test_report_sensor_block_toggle(monkeypatch):
+    import importlib
+
+    app_module = importlib.import_module("src.api.app")
+
+    monkeypatch.setattr(app_module, "_fetch_thingspeak", lambda results=100: _CANNED_TS)
+    client = TestClient(app)
+
+    res = client.get("/api/v1/reports/view?lat=40.5&lon=-88.5")
+    assert res.status_code == 200
+    assert "Field Sensor Readings" in res.text
+    assert "7.46" in res.text
+
+    res_off = client.get("/api/v1/reports/view?lat=40.5&lon=-88.5&sec_sensors=0")
+    assert res_off.status_code == 200
+    assert "Field Sensor Readings" not in res_off.text
