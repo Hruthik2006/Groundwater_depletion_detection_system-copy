@@ -54,13 +54,18 @@ class SystemState:
         # pop-up (the admin dashboard toggles it).
         _root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         self._ui_settings_path = os.path.join(_root, "data", "ui_settings.json")
-        self.ui_settings: Dict[str, Any] = {"show_provenance_option": True}
+        self.ui_settings: Dict[str, Any] = {
+            "show_provenance_option": True,
+            "show_sensors": True,
+        }
         try:
             if os.path.exists(self._ui_settings_path):
                 with open(self._ui_settings_path) as _f:
                     _loaded = json.load(_f)
-                if isinstance(_loaded, dict) and "show_provenance_option" in _loaded:
-                    self.ui_settings["show_provenance_option"] = bool(_loaded["show_provenance_option"])
+                if isinstance(_loaded, dict):
+                    for _k in ("show_provenance_option", "show_sensors"):
+                        if _k in _loaded:
+                            self.ui_settings[_k] = bool(_loaded[_k])
         except Exception:
             pass
 
@@ -492,6 +497,13 @@ def view_location_report(
     extracts them from the home chart) so the printed chart matches the home
     screen. Without them, the chart falls back to the analytic point forecast.
     """
+    # Admin visibility switches are authoritative: a feature the admin
+    # has hidden stays out of the report even if a stale client asks.
+    if not state.ui_settings.get("show_provenance_option", True):
+        sec_provenance = 0
+    if not state.ui_settings.get("show_sensors", True):
+        sec_sensors = 0
+
     _ensure_region_for_coords(lat, lon)
     row, col = state.data_loader.lat_lon_to_grid_index(lat, lon)
 
@@ -1099,7 +1111,10 @@ def recalibrate_conformal_model(alpha: float = 0.05):
 
 
 class UiSettingsRequest(BaseModel):
-    show_provenance_option: bool
+    # Both fields optional: the admin toggles send one flag at a time and
+    # a partial update must never clobber the other setting.
+    show_provenance_option: Optional[bool] = None
+    show_sensors: Optional[bool] = None
 
 
 @app.get("/api/v1/admin/ui-settings")
@@ -1109,11 +1124,21 @@ def get_ui_settings():
 
 @app.post("/api/v1/admin/ui-settings")
 def update_ui_settings(req: UiSettingsRequest):
-    state.ui_settings["show_provenance_option"] = bool(req.show_provenance_option)
+    changed = []
+    if req.show_provenance_option is not None:
+        state.ui_settings["show_provenance_option"] = bool(req.show_provenance_option)
+        changed.append(
+            f"provenance option visibility in the PDF generator pop-up = {state.ui_settings['show_provenance_option']}"
+        )
+    if req.show_sensors is not None:
+        state.ui_settings["show_sensors"] = bool(req.show_sensors)
+        changed.append(
+            f"IoT field sensors visibility (dashboard panel + PDF) = {state.ui_settings['show_sensors']}"
+        )
     state.save_ui_settings()
     state.log_event(
         "ADMIN_UI_SETTING",
-        f"Provenance option visibility in the PDF generator pop-up set to {state.ui_settings['show_provenance_option']}.",
+        "UI settings updated: " + ("; ".join(changed) if changed else "no changes") + ".",
     )
     return {"status": "success", "ui_settings": dict(state.ui_settings)}
 
