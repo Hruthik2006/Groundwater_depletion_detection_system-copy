@@ -1916,6 +1916,10 @@ async function switchPredictionGraphView(viewType, e) {
     if (titleEl) titleEl.innerText = `${currentChartHorizon || 12}-Month Hydrograph: Rainfall, Vadose Delay Recharge & Head Dynamics`;
     if (subEl) subEl.innerText = "Precipitation, Gamma vadose delay effective recharge, and water table head";
     renderHydrographChart();
+  } else if (viewType === "iot") {
+    if (titleEl) titleEl.innerText = "IoT Dashboard \u2014 Live Field Sensors (ThingSpeak)";
+    if (subEl) subEl.innerText = "Borewell hardware telemetry \u2014 water level and soil moisture history";
+    renderIotDashboardChart();
   }
 }
 
@@ -2469,6 +2473,67 @@ function openCustomReportModal() {
   modal.style.display = "flex";
 }
 
+async function renderIotDashboardChart() {
+  showPlot2Loading("Loading live IoT sensor telemetry...");
+  try {
+    let data = window._lastSensorData;
+    if (!data) {
+      const res = await fetch("/api/v1/sensors/thingspeak?results=100");
+      data = await res.json();
+      window._lastSensorData = data;
+    }
+    destroyExistingChart();
+    const canvas = document.getElementById("conformalChart");
+    if (!canvas) return;
+    const subEl = document.getElementById("plot2Sub");
+    if (!data.configured) {
+      if (subEl) subEl.innerText = "ThingSpeak is not configured on the server \u2014 set THINGSPEAK_READ_KEY in the server .env to enable the IoT dashboard.";
+      return;
+    }
+    if (data.error || !data.latest) {
+      if (subEl) subEl.innerText = "Sensor feed unreachable right now \u2014 the dashboard retries automatically every 30 s.";
+      return;
+    }
+    const labels = data.labels || {};
+    if (subEl) {
+      subEl.innerText = "Latest: "
+        + (labels.water_level || "Water Level") + " " + fmtSensorValue("water_level", data.latest.water_level)
+        + " \u00b7 " + (labels.temperature || "Temperature") + " " + fmtSensorValue("temperature", data.latest.temperature)
+        + " \u00b7 " + (labels.humidity || "Humidity") + " " + fmtSensorValue("humidity", data.latest.humidity)
+        + " \u00b7 " + (labels.soil_moisture || "Soil Moisture") + " " + fmtSensorValue("soil_moisture", data.latest.soil_moisture)
+        + " \u00b7 " + (labels.discharge_flow || "Discharge Flow") + " " + fmtSensorValue("discharge_flow", data.latest.discharge_flow)
+        + " (entry #" + data.latest.entry_id + ")";
+    }
+    const wl = (data.series && data.series.water_level) || [];
+    const sm = (data.series && data.series.soil_moisture) || [];
+    const smByTime = {};
+    sm.forEach(pt => { smByTime[pt[0]] = pt[1]; });
+    chartInstance = new Chart(canvas.getContext("2d"), {
+      type: "line",
+      data: {
+        labels: wl.map(pt => { const d = new Date(pt[0]); return isNaN(d) ? pt[0] : d.toLocaleTimeString(); }),
+        datasets: [
+          { label: labels.water_level || "Water Level", data: wl.map(pt => pt[1]), borderColor: "#38bdf8", backgroundColor: "rgba(56, 189, 248, 0.15)", fill: true, tension: 0.25, pointRadius: 0, yAxisID: "y" },
+          { label: labels.soil_moisture || "Soil Moisture", data: wl.map(pt => (pt[0] in smByTime ? smByTime[pt[0]] : null)), borderColor: "#4ade80", borderDash: [5, 4], fill: false, tension: 0.25, pointRadius: 0, yAxisID: "y1" }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { labels: { color: "#cbd5e1" } } },
+        scales: {
+          x: { ticks: { maxTicksLimit: 8, color: "#94a3b8" }, grid: { color: "rgba(148, 163, 184, 0.12)" } },
+          y: { position: "left", title: { display: true, text: labels.water_level || "Water Level", color: "#94a3b8" }, ticks: { color: "#94a3b8" }, grid: { color: "rgba(148, 163, 184, 0.12)" } },
+          y1: { position: "right", title: { display: true, text: labels.soil_moisture || "Soil Moisture", color: "#94a3b8" }, ticks: { color: "#94a3b8" }, grid: { drawOnChartArea: false } }
+        }
+      }
+    });
+  } catch (err) {
+    console.error("IoT dashboard chart error:", err);
+  } finally {
+    hidePlot2Loading();
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Live field sensors (ThingSpeak IoT rig). The server proxies the feed —
 // the read key never reaches the browser — and caches it for 20 s, so
@@ -2499,6 +2564,8 @@ async function applySensorVisibility() {
     if (card) card.style.display = show ? "" : "none";
     const row = document.getElementById("rptSensorsRow");
     if (row) row.style.display = show ? "" : "none";
+    const menuItem = document.getElementById("menuItemIot");
+    if (menuItem) menuItem.style.display = show ? "" : "none";
   } catch (e) {
     window._showSensors = true;
   }
@@ -2533,7 +2600,9 @@ async function fetchSensorData() {
       const t = new Date(data.latest.timestamp);
       updEl.innerText = "entry #" + data.latest.entry_id + " \u00b7 " + (isNaN(t) ? data.latest.timestamp : t.toLocaleTimeString());
     }
+    window._lastSensorData = data;
     renderSensorChart(data.series ? data.series.water_level || [] : []);
+    if (currentPredictionGraphView === "iot") renderIotDashboardChart();
   } catch (e) {
     if (stateEl) stateEl.innerText = "Sensor feed unreachable right now \u2014 retrying automatically.";
   }
