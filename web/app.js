@@ -590,8 +590,11 @@ document.addEventListener("DOMContentLoaded", () => {
   initInputGlobe();
   init3DMap();
   fetchSystemStatus();
-  fetchSensorData();
-  setInterval(fetchSensorData, 30000);
+  applySensorVisibility().then(() => { if (window._showSensors !== false) fetchSensorData(); });
+  setInterval(async () => {
+    await applySensorVisibility();
+    if (window._showSensors !== false) fetchSensorData();
+  }, 30000);
   fetchDrawdownForecast();
   fetchDepletionAlerts();
   runOptimization();
@@ -2460,6 +2463,7 @@ function openCustomReportModal() {
   if (hHydro) hHydro.value = currentH;
 
   applyProvenanceOptionVisibility();
+  applySensorVisibility();
 
   modal.classList.remove("hidden");
   modal.style.display = "flex";
@@ -2480,7 +2484,28 @@ function fmtSensorValue(key, v) {
   return num + (SENSOR_UNITS[key] ? " " + SENSOR_UNITS[key] : "");
 }
 
+// The admin dashboard can hide the IoT sensors entirely (server-side
+// UI setting): the dashboard card and the PDF pop-up option both
+// disappear, the poller stops, and the report generator forces the
+// section off. Re-checked every poll cycle, so toggling it back on in
+// the admin panel restores the panel without a page reload.
+async function applySensorVisibility() {
+  try {
+    const res = await fetch("/api/v1/status");
+    const data = await res.json();
+    const show = !data.ui_settings || data.ui_settings.show_sensors !== false;
+    window._showSensors = show;
+    const card = document.getElementById("sensorCard");
+    if (card) card.style.display = show ? "" : "none";
+    const row = document.getElementById("rptSensorsRow");
+    if (row) row.style.display = show ? "" : "none";
+  } catch (e) {
+    window._showSensors = true;
+  }
+}
+
 async function fetchSensorData() {
+  if (window._showSensors === false) return;
   const stateEl = document.getElementById("sensorState");
   const tilesEl = document.getElementById("sensorTiles");
   const updEl = document.getElementById("sensorUpdated");
@@ -2599,7 +2624,7 @@ function generateCustomPdfReport() {
   const secSummary = isChecked("rptSec_summary");
   const secHeatmap = isChecked("rptSec_heatmap");
   const secProvenance = window._showProvenanceOption === false ? 0 : isChecked("rptSec_provenance");
-  const secSensors = isChecked("rptSec_sensors");
+  const secSensors = window._showSensors === false ? 0 : isChecked("rptSec_sensors");
   const secStratigraphy = isChecked("rptSec_stratigraphy");
   const secConformal = isChecked("rptSec_conformal");
   const hConformal = getHorizon("rptHorizon_conformal", 12);
