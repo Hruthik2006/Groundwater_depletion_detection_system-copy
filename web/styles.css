@@ -731,14 +731,6 @@ input::placeholder {
   height: 100%;
 }
 
-/* Live sensor panel (Predictions tab): let the plot grid shrink so the
-   sensor card beneath it fits the fixed-height panel. */
-#panelPredictions .panel-grid-dual { height: auto; flex: 1 1 auto; min-height: 0; }
-.sensor-tiles { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.6rem; }
-.sensor-tile { background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 10px; padding: 8px 10px; }
-.sensor-tile .sensor-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.75; }
-.sensor-tile .sensor-value { font-size: 1.25rem; font-weight: 700; margin-top: 2px; }
-
 .panel-grid-maps,
 .panel-grid-predictions,
 .panel-grid-dual {
