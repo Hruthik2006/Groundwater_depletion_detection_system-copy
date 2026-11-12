@@ -528,8 +528,20 @@
                     <span id="chartHorizonBadge" class="horizon-badge">12-Month Horizon</span>
                   </div>
                 </div>
-                <div class="chart-container flex-fill">
+                <div class="chart-container flex-fill" id="plot2ChartWrap">
                   <canvas id="conformalChart"></canvas>
+                </div>
+                <!-- IoT dashboard view (Predictions menu -> IoT Dashboard):
+                     the IGMS sensor card, shown inside Plot 2 on demand. -->
+                <div id="iotDashboardView" style="display: none; flex: 1 1 auto; min-height: 0; overflow-y: auto; padding-top: 4px;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    <div id="sensorState" class="card-sub"></div>
+                    <span class="horizon-badge" id="sensorUpdated">waiting for first reading&hellip;</span>
+                  </div>
+                  <div class="sensor-tiles" id="sensorTiles" style="margin-top: 8px;"></div>
+                  <div style="height: 190px; margin-top: 10px;">
+                    <canvas id="sensorWaterChart"></canvas>
+                  </div>
                 </div>
               </div>
             </div>
@@ -859,7 +871,7 @@
     </div>
   </div>
 
-  <script src="/static/app.js?v=20261112e"></script>
+  <script src="/static/app.js?v=20261112f"></script>
 </body>
 
 </html>
