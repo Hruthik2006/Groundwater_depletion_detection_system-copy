@@ -36,3 +36,21 @@ python main.py synthetic
 pip install -r requirements-dev.txt
 python -m pytest tests/ -q
 ```
+
+## Live field sensors (ThingSpeak)
+
+The dashboard's Predictions tab carries a **Live Field Sensors** panel fed
+by the borewell IoT rig's ThingSpeak channel (temperature, humidity, soil
+moisture, water level, discharge flow), and the PDF report can include the
+same readings ("Field Sensor Readings" option in the Generate PDF pop-up).
+
+The ThingSpeak read key stays on the server — set it in `.env` (never in
+code, never in the browser):
+
+```bash
+THINGSPEAK_CHANNEL_ID=3575415
+THINGSPEAK_READ_KEY=<your ThingSpeak read API key>
+```
+
+Restart the server after editing `.env`. Without the key, the panel shows
+a "not configured" notice and reports simply omit the sensor block.
